@@ -12,7 +12,7 @@ import type {
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import "leaflet/dist/leaflet.css";
 import governoratesJson from "@/data/tunisia-governorates.json";
-import { INITIAL_REGIONS } from "@/data/regions";
+import { INITIAL_REGIONS } from "@/data/governorates";
 import { useGameStore } from "@/store/gameStore";
 import type { RegionId } from "@/types/game";
 
@@ -40,24 +40,28 @@ const PAN_BOUNDS: LatLngBoundsExpression = [
   [42, 20],
 ];
 
-// Transparent fills so the real map (roads, terrain, borders) stays readable.
+// Bright, slightly translucent strokes with near-transparent fills so the
+// governorate outlines stay crisp over satellite imagery without hiding it.
 const BASE_STYLE: PathOptions = {
-  color: "#94a3b8",
-  weight: 1.2,
-  fillColor: "#475569",
-  fillOpacity: 0.12,
+  color: "#f8fafc",
+  weight: 1.5,
+  opacity: 0.75,
+  fillColor: "#0f172a",
+  fillOpacity: 0.08,
 };
 const HOVER_STYLE: PathOptions = {
-  color: "#fde68a",
-  weight: 2,
+  color: "#fbbf24",
+  weight: 2.5,
+  opacity: 1,
   fillColor: "#f59e0b",
-  fillOpacity: 0.3,
+  fillOpacity: 0.22,
 };
 const SELECTED_STYLE: PathOptions = {
-  color: "#6ee7b7",
-  weight: 2.5,
+  color: "#34d399",
+  weight: 3,
+  opacity: 1,
   fillColor: "#10b981",
-  fillOpacity: 0.3,
+  fillOpacity: 0.22,
 };
 
 function toggleRegion(id: RegionId) {
@@ -141,10 +145,9 @@ export interface TunisiaMapProps {
 }
 
 /**
- * Real-world Leaflet map (CARTO Dark Matter tiles: roads, terrain and the
- * Algerian/Libyan borders) with the 24 governorates overlaid as an
- * interactive GeoJSON layer. Browser-only — always load via `next/dynamic`
- * with `ssr: false` (see MapPanel).
+ * Real-world Leaflet map (Esri World Imagery satellite tiles) with the 24
+ * governorates overlaid as an interactive GeoJSON layer. Browser-only —
+ * always load via `next/dynamic` with `ssr: false` (see MapPanel).
  */
 export default function TunisiaMap({ className }: TunisiaMapProps) {
   return (
@@ -152,14 +155,14 @@ export default function TunisiaMap({ className }: TunisiaMapProps) {
       bounds={TUNISIA_BOUNDS}
       maxBounds={PAN_BOUNDS}
       minZoom={5}
-      maxZoom={14}
+      maxZoom={18}
       className={className ?? "h-full w-full"}
       style={{ background: "#0f172a" }}
     >
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        subdomains="abcd"
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        attribution="Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+        maxZoom={18}
       />
       <GovernorateLayer />
     </MapContainer>

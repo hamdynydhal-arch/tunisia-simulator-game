@@ -57,6 +57,28 @@ export default function RegionSidebar() {
             {formatNumber(region.population)}
           </dd>
         </div>
+        <div className="flex gap-6">
+          <div className="flex-1">
+            <dt className="text-xs text-slate-400">نسبة البطالة</dt>
+            <dd
+              className={`mt-1 text-lg font-medium tabular-nums ${
+                region.unemploymentRate >= 20
+                  ? "text-red-400"
+                  : region.unemploymentRate >= 15
+                    ? "text-amber-300"
+                    : "text-emerald-400"
+              }`}
+            >
+              {region.unemploymentRate.toFixed(1)}٪
+            </dd>
+          </div>
+          <div className="flex-1">
+            <dt className="text-xs text-slate-400">مؤشر التنمية</dt>
+            <dd className="mt-1 text-lg font-medium tabular-nums text-slate-100">
+              {Math.round(region.developmentIndex)}/100
+            </dd>
+          </div>
+        </div>
         <div>
           <dt className="text-xs text-slate-400">مستوى البنية التحتية</dt>
           <dd className="mt-2 flex items-center gap-3">

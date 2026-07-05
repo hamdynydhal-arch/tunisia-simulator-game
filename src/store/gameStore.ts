@@ -8,7 +8,7 @@ import type {
   Region,
   RegionId,
 } from "@/types/game";
-import { INITIAL_REGIONS } from "@/data/regions";
+import { INITIAL_REGIONS } from "@/data/governorates";
 import { getProjectTemplate } from "@/data/projects";
 import { EVENT_CHANCE, GAME_EVENTS } from "@/data/events";
 import {
@@ -154,6 +154,10 @@ export const useGameStore = create<GameStore>()(
                       template.effects.infrastructureChange,
                   ),
                 ),
+                completedProjects: [
+                  ...region.completedProjects,
+                  project.projectId,
+                ],
               };
             }
             completedProjects = [
@@ -193,7 +197,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -223,6 +227,20 @@ export const useGameStore = create<GameStore>()(
           state.completedProjects = state.completedProjects.filter(
             (project) => !violates(project),
           );
+        }
+        // v4 saves predate the socio-economic layer; backfill the new
+        // per-region fields from the seed data and rebuild each region's
+        // completed-project list from the global record.
+        if (version < 5) {
+          for (const region of Object.values(state.regions)) {
+            const seed = INITIAL_REGIONS[region.id];
+            region.unemploymentRate = seed.unemploymentRate;
+            region.developmentIndex = seed.developmentIndex;
+            region.currentNeeds = seed.currentNeeds;
+            region.completedProjects = state.completedProjects
+              .filter((project) => project.regionId === region.id)
+              .map((project) => project.projectId);
+          }
         }
         return persisted;
       },

@@ -72,6 +72,14 @@ export interface Region {
   infrastructureLevel: number;
   /** Whether the governorate has a Mediterranean coastline. */
   isCoastal: boolean;
+  /** Registered unemployment as a percentage of the active population. */
+  unemploymentRate: number;
+  /** Composite socio-economic development index, 0 (lowest) to 100. */
+  developmentIndex: number;
+  /** `ProjectTemplate.id`s this governorate needs most, in priority order. */
+  currentNeeds: readonly string[];
+  /** `ProjectTemplate.id`s of projects completed here (may repeat). */
+  completedProjects: readonly string[];
 }
 
 /** Region-level consequences of a completed project. */
