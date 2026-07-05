@@ -13,6 +13,7 @@ import { getProjectTemplate } from "@/data/projects";
 import { EVENT_CHANCE, GAME_EVENTS } from "@/data/events";
 import {
   MAX_ACTIVE_PROJECTS_PER_REGION,
+  applyProjectCompletion,
   computeMonthlyFinances,
 } from "@/lib/economy";
 
@@ -22,8 +23,6 @@ const INITIAL_GAME_STATE: GameState = {
   hardCurrency: 2_400,
   currentEvent: null,
 };
-
-const MAX_INFRASTRUCTURE_LEVEL = 10;
 
 /** Game dates always sit on the 1st of the month, so this never skips/clamps days. */
 function addOneMonth(isoDate: string): string {
@@ -37,7 +36,10 @@ interface GameStore {
   regions: Record<RegionId, Region>;
   activeProjects: readonly ActiveProject[];
   completedProjects: readonly CompletedProject[];
+  /** Projects that finished on the latest tick; transient, not persisted. */
+  completionNotices: readonly CompletedProject[];
   selectedRegionId: RegionId | null;
+  dismissNotice: (instanceId: string) => void;
   selectRegion: (id: RegionId | null) => void;
   /**
    * Starts a project in a region if funds cover it and the region is below
@@ -61,9 +63,17 @@ export const useGameStore = create<GameStore>()(
       regions: INITIAL_REGIONS,
       activeProjects: [],
       completedProjects: [],
+      completionNotices: [],
       selectedRegionId: null,
 
       selectRegion: (id) => set({ selectedRegionId: id }),
+
+      dismissNotice: (instanceId) =>
+        set((state) => ({
+          completionNotices: state.completionNotices.filter(
+            (notice) => notice.instanceId !== instanceId,
+          ),
+        })),
 
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
@@ -143,22 +153,10 @@ export const useGameStore = create<GameStore>()(
               if (!template) {
                 continue;
               }
-              const region = regions[project.regionId];
-              regions[project.regionId] = {
-                ...region,
-                infrastructureLevel: Math.min(
-                  MAX_INFRASTRUCTURE_LEVEL,
-                  Math.max(
-                    0,
-                    region.infrastructureLevel +
-                      template.effects.infrastructureChange,
-                  ),
-                ),
-                completedProjects: [
-                  ...region.completedProjects,
-                  project.projectId,
-                ],
-              };
+              regions[project.regionId] = applyProjectCompletion(
+                regions[project.regionId],
+                template,
+              );
             }
             completedProjects = [
               ...completedProjects,
@@ -181,6 +179,13 @@ export const useGameStore = create<GameStore>()(
               (project) => project.monthsRemaining > 0,
             ),
             completedProjects,
+            completionNotices: completed.map(
+              ({ instanceId, projectId, regionId }) => ({
+                instanceId,
+                projectId,
+                regionId,
+              }),
+            ),
             regions,
           };
         }),
@@ -191,6 +196,7 @@ export const useGameStore = create<GameStore>()(
           regions: INITIAL_REGIONS,
           activeProjects: [],
           completedProjects: [],
+          completionNotices: [],
           selectedRegionId: null,
         }),
     }),

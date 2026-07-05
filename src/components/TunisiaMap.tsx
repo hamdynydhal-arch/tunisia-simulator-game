@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
+import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { divIcon } from "leaflet";
 import type {
+  DivIcon,
   GeoJSON as LeafletGeoJSON,
   LatLngBoundsExpression,
   Layer,
@@ -13,6 +15,9 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import "leaflet/dist/leaflet.css";
 import governoratesJson from "@/data/tunisia-governorates.json";
 import { INITIAL_REGIONS } from "@/data/governorates";
+import { getProjectTemplate } from "@/data/projects";
+import { projectMarkerPosition } from "@/lib/regionPoints";
+import { registerMap, unregisterMap } from "@/lib/mapBus";
 import { useGameStore } from "@/store/gameStore";
 import type { RegionId } from "@/types/game";
 
@@ -140,6 +145,70 @@ function GovernorateLayer() {
   );
 }
 
+/** Emoji glyph shown on the map for each completed project type. */
+const PROJECT_GLYPHS: Record<string, string> = {
+  "regional-hospital": "\u{1F3E5}",
+  highway: "\u{1F6E3}\u{FE0F}",
+  "industrial-zone": "\u{1F3ED}",
+  "commercial-port": "\u2693",
+  "desalination-plant": "\u{1F4A7}",
+  "archaeological-restoration": "\u{1F3DB}\u{FE0F}",
+  "livestock-program": "\u{1F411}",
+};
+
+const iconCache = new Map<string, DivIcon>();
+
+function projectIcon(projectId: string): DivIcon {
+  let icon = iconCache.get(projectId);
+  if (!icon) {
+    icon = divIcon({
+      html: `<span>${PROJECT_GLYPHS[projectId] ?? "\u{1F3D7}\u{FE0F}"}</span>`,
+      className: "project-marker",
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    });
+    iconCache.set(projectId, icon);
+  }
+  return icon;
+}
+
+/** One marker per finished project, anchored inside its governorate. */
+function CompletedProjectMarkers() {
+  const completedProjects = useGameStore((state) => state.completedProjects);
+  const perRegionCount: Partial<Record<RegionId, number>> = {};
+
+  return (
+    <>
+      {completedProjects.map((project) => {
+        const index = perRegionCount[project.regionId] ?? 0;
+        perRegionCount[project.regionId] = index + 1;
+        const template = getProjectTemplate(project.projectId);
+        return (
+          <Marker
+            key={project.instanceId}
+            position={projectMarkerPosition(project.regionId, index)}
+            icon={projectIcon(project.projectId)}
+          >
+            <Tooltip direction="top" className="region-tooltip">
+              {template?.name ?? project.projectId}
+            </Tooltip>
+          </Marker>
+        );
+      })}
+    </>
+  );
+}
+
+/** Publishes the Leaflet instance so toasts can drive flyTo from outside. */
+function MapBridge() {
+  const map = useMap();
+  useEffect(() => {
+    registerMap(map);
+    return () => unregisterMap(map);
+  }, [map]);
+  return null;
+}
+
 export interface TunisiaMapProps {
   className?: string;
 }
@@ -165,6 +234,8 @@ export default function TunisiaMap({ className }: TunisiaMapProps) {
         maxZoom={18}
       />
       <GovernorateLayer />
+      <CompletedProjectMarkers />
+      <MapBridge />
     </MapContainer>
   );
 }

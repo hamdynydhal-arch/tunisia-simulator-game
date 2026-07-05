@@ -28,6 +28,15 @@ export default function RegionSidebar() {
   );
   const atCapacity = regionProjects.length >= MAX_ACTIVE_PROJECTS_PER_REGION;
 
+  // Recommended projects (the region's needs, in priority order) come first.
+  const needRank = (templateId: string) => {
+    const rank = region.currentNeeds.indexOf(templateId);
+    return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+  };
+  const orderedTemplates = [...PROJECT_TEMPLATES].sort(
+    (a, b) => needRank(a.id) - needRank(b.id),
+  );
+
   return (
     <aside
       aria-label={`تفاصيل ولاية ${region.name}`}
@@ -79,6 +88,21 @@ export default function RegionSidebar() {
             </dd>
           </div>
         </div>
+        {region.currentNeeds.length > 0 && (
+          <div>
+            <dt className="text-xs text-slate-400">الاحتياجات الحالية</dt>
+            <dd className="mt-2 flex flex-wrap gap-1.5">
+              {region.currentNeeds.map((needId) => (
+                <span
+                  key={needId}
+                  className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-300"
+                >
+                  {getProjectTemplate(needId)?.name ?? needId}
+                </span>
+              ))}
+            </dd>
+          </div>
+        )}
         <div>
           <dt className="text-xs text-slate-400">مستوى البنية التحتية</dt>
           <dd className="mt-2 flex items-center gap-3">
@@ -109,7 +133,8 @@ export default function RegionSidebar() {
           </p>
         )}
         <ul className="mt-3 space-y-3">
-          {PROJECT_TEMPLATES.map((template) => {
+          {orderedTemplates.map((template) => {
+            const recommended = region.currentNeeds.includes(template.id);
             const affordable =
               gameState.totalBudget >= template.costTND &&
               gameState.hardCurrency >= template.costUSD;
@@ -118,11 +143,20 @@ export default function RegionSidebar() {
             return (
               <li
                 key={template.id}
-                className="rounded-lg border border-slate-700 bg-slate-800/40 p-3"
+                className={`rounded-lg border p-3 ${
+                  recommended
+                    ? "border-sky-500/50 bg-sky-500/5"
+                    : "border-slate-700 bg-slate-800/40"
+                }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <h4 className="flex items-center gap-1.5 text-sm font-semibold text-slate-100">
+                  <h4 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-slate-100">
                     {template.name}
+                    {recommended && (
+                      <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                        موصى به
+                      </span>
+                    )}
                     {template.requiresCoastal && (
                       <span
                         role="img"
@@ -169,7 +203,8 @@ export default function RegionSidebar() {
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   الصيانة: {formatMillions(template.maintenanceCostTND, "TND")}{" "}
-                  شهريًا
+                  شهريًا · التشغيل: {formatNumber(template.jobsCreated)} موطن
+                  شغل
                 </p>
                 {template.directIncomeTND !== undefined && (
                   <p className="mt-1 text-xs font-semibold text-emerald-400">

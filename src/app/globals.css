@@ -68,3 +68,41 @@ body {
 .region-tooltip::before {
   display: none;
 }
+
+/* Completed-project markers (Leaflet divIcon). */
+.project-marker {
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  background: rgb(15 23 42 / 0.92);
+  border: 2px solid rgb(52 211 153 / 0.9);
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+}
+
+/* "+توظيف" / "+ضرائب" rising from the map toward the HUD counters. */
+@keyframes float-to-hud {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(0, -18px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fx-dx, 0px), var(--fx-dy, -160px)) scale(0.7);
+  }
+}
+.floating-stat {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  font-size: 1rem;
+  font-weight: 800;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.8);
+  opacity: 0;
+  animation: float-to-hud 1.9s cubic-bezier(0.3, 0, 0.7, 1) forwards;
+}

@@ -1,4 +1,6 @@
+import CompletionToasts from "@/components/CompletionToasts";
 import EventToast from "@/components/EventToast";
+import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
 import MapPanel from "@/components/MapPanel";
 import RegionSidebar from "@/components/RegionSidebar";
@@ -8,6 +10,8 @@ export default function Home() {
     <div className="flex min-h-dvh flex-1 flex-col">
       <GameHud />
       <EventToast />
+      <CompletionToasts />
+      <FloatingEffects />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">
         {/* DOM-first in an RTL row = pinned to the physical right edge on desktop */}

@@ -101,6 +101,8 @@ export interface ProjectTemplate {
   durationMonths: number;
   /** Recurring upkeep in million TND per month once the project is completed. */
   maintenanceCostTND: number;
+  /** Direct + induced jobs created in the region once completed. */
+  jobsCreated: number;
   /** Revenue in million TND per month generated once completed, if any. */
   directIncomeTND?: number;
   /** Restricts construction to regions with `isCoastal: true`. */

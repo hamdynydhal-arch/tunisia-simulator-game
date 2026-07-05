@@ -33,7 +33,7 @@ export default function GameHud() {
             {formatGameDate(gameState.currentDate)}
           </span>
         </div>
-        <div className="flex items-baseline gap-2">
+        <div id="hud-budget" className="flex items-baseline gap-2">
           <span className="text-xs text-slate-500">الميزانية العامة</span>
           <span
             className={`text-sm font-semibold tabular-nums ${
