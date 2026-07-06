@@ -4,7 +4,9 @@ import type {
   ActiveProject,
   CompletedProject,
   GameEvent,
+  GameOutcome,
   GameState,
+  HistoryPoint,
   Region,
   RegionId,
 } from "@/types/game";
@@ -16,6 +18,7 @@ import {
   applyMonthlyDrift,
   applyProjectCompletion,
   computeMonthlyFinances,
+  computeNationalMetrics,
 } from "@/lib/economy";
 import {
   POLITICAL_COOLDOWN_MONTHS,
@@ -30,7 +33,25 @@ const INITIAL_GAME_STATE: GameState = {
   politicalEvent: null,
   politicalCooldown: 0,
   boomedRegions: [],
+  outcome: null,
+  outcomeReason: null,
 };
+
+/** Regime collapse: stability below this is the point of no return. */
+const COLLAPSE_STABILITY = 15;
+/** Regime collapse: national debt beyond this is unrecoverable, M TND. */
+const COLLAPSE_DEBT = -2_000;
+/** Victory window opens after this many months in power (10 years). */
+const VICTORY_MONTHS = 120;
+const VICTORY_DEVELOPMENT = 80;
+const VICTORY_UNEMPLOYMENT = 10;
+/** Rolling window of national indicators kept for the dashboard. */
+const HISTORY_LIMIT = 60;
+
+function monthsSinceStart(isoDate: string): number {
+  const [year, month] = isoDate.split("-").map(Number);
+  return (year - 2026) * 12 + (month - 1);
+}
 
 /** Game dates always sit on the 1st of the month, so this never skips/clamps days. */
 function addOneMonth(isoDate: string): string {
@@ -46,7 +67,16 @@ interface GameStore {
   completedProjects: readonly CompletedProject[];
   /** Projects that finished on the latest tick; transient, not persisted. */
   completionNotices: readonly CompletedProject[];
+  /** Rolling monthly snapshots of national indicators (max 60). */
+  history: readonly HistoryPoint[];
   selectedRegionId: RegionId | null;
+  /** Auto-advance timer; transient UI state. */
+  timeRunning: boolean;
+  timeSpeed: 1 | 2 | 3;
+  dashboardOpen: boolean;
+  toggleTimeRunning: () => void;
+  setTimeSpeed: (speed: 1 | 2 | 3) => void;
+  toggleDashboard: () => void;
   selectRegion: (id: RegionId | null) => void;
   dismissNotice: (instanceId: string) => void;
   /** Closes the socio-political modal and lets the game loop resume. */
@@ -74,9 +104,21 @@ export const useGameStore = create<GameStore>()(
       activeProjects: [],
       completedProjects: [],
       completionNotices: [],
+      history: [],
       selectedRegionId: null,
+      timeRunning: false,
+      timeSpeed: 1,
+      dashboardOpen: false,
 
       selectRegion: (id) => set({ selectedRegionId: id }),
+
+      toggleTimeRunning: () =>
+        set((state) => ({ timeRunning: !state.timeRunning })),
+
+      setTimeSpeed: (speed) => set({ timeSpeed: speed }),
+
+      toggleDashboard: () =>
+        set((state) => ({ dashboardOpen: !state.dashboardOpen })),
 
       dismissNotice: (instanceId) =>
         set((state) => ({
@@ -139,8 +181,9 @@ export const useGameStore = create<GameStore>()(
 
       advanceTime: () =>
         set((state) => {
-          // A political event on screen pauses the loop until acknowledged.
-          if (state.gameState.politicalEvent) {
+          // A political event on screen — or a finished campaign — freezes
+          // the loop.
+          if (state.gameState.politicalEvent || state.gameState.outcome) {
             return state;
           }
 
@@ -213,17 +256,54 @@ export const useGameStore = create<GameStore>()(
             eventBudgetChange = currentEvent.effects.budgetChange;
           }
 
+          // National snapshot, win/loss evaluation, and history.
+          const nextDate = addOneMonth(state.gameState.currentDate);
+          const nextBudget =
+            state.gameState.totalBudget +
+            net +
+            eventBudgetChange +
+            political.budgetDelta;
+          const nextHardCurrency =
+            state.gameState.hardCurrency + political.hardCurrencyDelta;
+          const metrics = computeNationalMetrics(regions);
+
+          let outcome: GameOutcome | null = null;
+          let outcomeReason: string | null = null;
+          if (metrics.stability < COLLAPSE_STABILITY) {
+            outcome = "collapse";
+            outcomeReason = `انهار الاستقرار الوطني إلى ${Math.round(metrics.stability)}/100. عمّت الاضطرابات البلاد وفقدت الدولة السيطرة على الشارع، فسقطت الحكومة.`;
+          } else if (nextBudget < COLLAPSE_DEBT) {
+            outcome = "collapse";
+            outcomeReason = `تجاوز الدين العمومي حدود القدرة على السداد (${Math.round(nextBudget)} مليون دينار). أعلنت الدولة إفلاسها وانهارت الثقة في الاقتصاد.`;
+          } else if (
+            monthsSinceStart(nextDate) >= VICTORY_MONTHS &&
+            metrics.avgDevelopment > VICTORY_DEVELOPMENT &&
+            metrics.avgUnemployment < VICTORY_UNEMPLOYMENT
+          ) {
+            outcome = "victory";
+            outcomeReason = `عشر سنوات من الحكم الرشيد: تنمية وطنية بلغت ${Math.round(metrics.avgDevelopment)}/100 وبطالة دون ${Math.round(metrics.avgUnemployment)}٪. دخلت تونس عصرها الذهبي.`;
+          }
+
+          const history = [
+            ...state.history,
+            {
+              date: nextDate,
+              gdp: Math.round(metrics.gdpAnnual),
+              stability: Math.round(metrics.stability * 10) / 10,
+              budget: Math.round(nextBudget),
+              hardCurrency: Math.round(nextHardCurrency),
+            },
+          ].slice(-HISTORY_LIMIT);
+
           return {
+            history,
             gameState: {
               ...state.gameState,
-              currentDate: addOneMonth(state.gameState.currentDate),
-              totalBudget:
-                state.gameState.totalBudget +
-                net +
-                eventBudgetChange +
-                political.budgetDelta,
-              hardCurrency:
-                state.gameState.hardCurrency + political.hardCurrencyDelta,
+              currentDate: nextDate,
+              totalBudget: nextBudget,
+              hardCurrency: nextHardCurrency,
+              outcome,
+              outcomeReason,
               currentEvent,
               politicalEvent: political.event,
               politicalCooldown: political.event
@@ -255,19 +335,23 @@ export const useGameStore = create<GameStore>()(
           activeProjects: [],
           completedProjects: [],
           completionNotices: [],
+          history: [],
           selectedRegionId: null,
+          timeRunning: false,
+          dashboardOpen: false,
         }),
     }),
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
           regions: Record<RegionId, Region>;
           activeProjects: ActiveProject[];
           completedProjects: CompletedProject[];
+          history: HistoryPoint[];
         };
         // v1 saves predate the event system; give them an empty event slot.
         if (version < 2) {
@@ -319,6 +403,12 @@ export const useGameStore = create<GameStore>()(
           state.gameState.politicalCooldown = 0;
           state.gameState.boomedRegions = [];
         }
+        // v7 saves predate outcomes and the analytics history.
+        if (version < 8) {
+          state.gameState.outcome = null;
+          state.gameState.outcomeReason = null;
+          state.history = [];
+        }
         return persisted;
       },
       // Selection and notices are transient UI state; only the campaign
@@ -328,6 +418,7 @@ export const useGameStore = create<GameStore>()(
         regions: state.regions,
         activeProjects: state.activeProjects,
         completedProjects: state.completedProjects,
+        history: state.history,
       }),
       // SSR and the first client render both use the initial state; the saved
       // campaign is loaded after mount (see StoreHydrator) so the HTML always

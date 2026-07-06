@@ -73,6 +73,27 @@ export interface GameState {
   politicalCooldown: number;
   /** Regions that already received their one-time FDI boom. */
   boomedRegions: readonly RegionId[];
+  /** Terminal state of the campaign, if reached. */
+  outcome: GameOutcome | null;
+  /** Arabic narrative explaining how the campaign ended. */
+  outcomeReason: string | null;
+}
+
+/** How a campaign can end. */
+export type GameOutcome = "collapse" | "victory";
+
+/** One month of national indicators, kept for the analytics dashboard. */
+export interface HistoryPoint {
+  /** ISO date of the month this snapshot describes. */
+  date: string;
+  /** Annual national output, million TND. */
+  gdp: number;
+  /** National stability, 0–100. */
+  stability: number;
+  /** Treasury balance, million TND. */
+  budget: number;
+  /** Hard-currency reserves, million USD. */
+  hardCurrency: number;
 }
 
 /** One of the 24 governorates. */

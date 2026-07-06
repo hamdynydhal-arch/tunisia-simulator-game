@@ -1,8 +1,11 @@
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import AutoAdvance from "@/components/AutoAdvance";
 import CompletionToasts from "@/components/CompletionToasts";
 import EventToast from "@/components/EventToast";
 import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
 import MapPanel from "@/components/MapPanel";
+import OutcomeScreen from "@/components/OutcomeScreen";
 import PoliticalEventModal from "@/components/PoliticalEventModal";
 import RegionSidebar from "@/components/RegionSidebar";
 
@@ -14,6 +17,9 @@ export default function Home() {
       <CompletionToasts />
       <FloatingEffects />
       <PoliticalEventModal />
+      <AnalyticsDashboard />
+      <OutcomeScreen />
+      <AutoAdvance />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">
         {/* DOM-first in an RTL row = pinned to the physical right edge on desktop */}

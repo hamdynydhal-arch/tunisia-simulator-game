@@ -13,13 +13,18 @@ export default function GameHud() {
   const completedProjects = useGameStore((state) => state.completedProjects);
   const advanceTime = useGameStore((state) => state.advanceTime);
   const resetGame = useGameStore((state) => state.resetGame);
+  const timeRunning = useGameStore((state) => state.timeRunning);
+  const timeSpeed = useGameStore((state) => state.timeSpeed);
+  const toggleTimeRunning = useGameStore((state) => state.toggleTimeRunning);
+  const setTimeSpeed = useGameStore((state) => state.setTimeSpeed);
+  const toggleDashboard = useGameStore((state) => state.toggleDashboard);
 
   const { net } = useMemo(
     () => computeMonthlyFinances(regions, activeProjects, completedProjects),
     [regions, activeProjects, completedProjects],
   );
   const national = useMemo(() => computeNationalMetrics(regions), [regions]);
-  const paused = Boolean(gameState.politicalEvent);
+  const paused = Boolean(gameState.politicalEvent || gameState.outcome);
 
   const inDebt = gameState.totalBudget < 0;
 
@@ -88,6 +93,50 @@ export default function GameHud() {
         </div>
         <button
           type="button"
+          onClick={toggleDashboard}
+          aria-label="لوحة التحليلات الوطنية"
+          title="لوحة التحليلات الوطنية"
+          className="rounded-md border border-slate-600 px-2.5 py-1.5 text-sm transition-colors hover:bg-slate-800"
+        >
+          📊
+        </button>
+        <div
+          className="flex items-center gap-1 rounded-md border border-slate-700 p-0.5"
+          role="group"
+          aria-label="سرعة الزمن"
+        >
+          <button
+            type="button"
+            onClick={toggleTimeRunning}
+            disabled={paused}
+            aria-label={timeRunning ? "إيقاف الزمن" : "تشغيل الزمن"}
+            title={timeRunning ? "إيقاف الزمن" : "تشغيل الزمن"}
+            className={`rounded px-2.5 py-1 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:text-slate-600 ${
+              timeRunning
+                ? "bg-emerald-600 text-white"
+                : "text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {timeRunning ? "⏸" : "▶"}
+          </button>
+          {([1, 2, 3] as const).map((speed) => (
+            <button
+              key={speed}
+              type="button"
+              onClick={() => setTimeSpeed(speed)}
+              aria-pressed={timeSpeed === speed}
+              className={`rounded px-2 py-1 text-xs font-bold tabular-nums transition-colors ${
+                timeSpeed === speed
+                  ? "bg-slate-700 text-slate-100"
+                  : "text-slate-500 hover:bg-slate-800"
+              }`}
+            >
+              {speed}×
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
           onClick={() => {
             if (window.confirm("هل تريد بدء حملة جديدة؟ سيتم مسح كل التقدم الحالي.")) {
               resetGame();
@@ -100,7 +149,7 @@ export default function GameHud() {
         <button
           type="button"
           onClick={advanceTime}
-          disabled={paused}
+          disabled={paused || timeRunning}
           title={paused ? "يجب مراجعة الحدث السياسي أولًا" : undefined}
           className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/50 transition-colors hover:bg-emerald-500 active:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
         >

@@ -169,6 +169,8 @@ export interface NationalMetrics {
   gdpAnnual: number;
   /** Overall national stability, 0–100. */
   stability: number;
+  /** Population-weighted national development index, 0–100. */
+  avgDevelopment: number;
   /** Population-weighted development gap between coast and interior. */
   coastInteriorGap: number;
   /** Population-weighted national unemployment, %. */
@@ -219,6 +221,7 @@ export function computeNationalMetrics(
 
   return {
     gdpAnnual,
+    avgDevelopment: avgDev,
     stability: clamp(
       0.4 * employmentScore + 0.3 * avgDev + 0.3 * avgSec - inequalityPenalty,
       0,
