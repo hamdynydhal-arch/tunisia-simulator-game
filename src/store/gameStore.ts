@@ -19,6 +19,7 @@ import {
   applyProjectCompletion,
   computeMonthlyFinances,
   computeNationalMetrics,
+  monthlyTechPoints,
 } from "@/lib/economy";
 import {
   POLITICAL_COOLDOWN_MONTHS,
@@ -29,6 +30,7 @@ const INITIAL_GAME_STATE: GameState = {
   currentDate: "2026-01-01",
   totalBudget: 5_000,
   hardCurrency: 2_400,
+  techLevel: 0,
   currentEvent: null,
   politicalEvent: null,
   politicalCooldown: 0,
@@ -148,6 +150,12 @@ export const useGameStore = create<GameStore>()(
         if (!prerequisitesMet) {
           return false;
         }
+        if (
+          template.requiresTechLevel !== undefined &&
+          gameState.techLevel < template.requiresTechLevel
+        ) {
+          return false;
+        }
         const regionActiveCount = activeProjects.filter(
           (project) => project.regionId === regionId,
         ).length;
@@ -188,11 +196,14 @@ export const useGameStore = create<GameStore>()(
           }
 
           // Finances for the elapsing month, from the pre-tick state.
-          const { net } = computeMonthlyFinances(
+          const { net, hardCurrencyNet } = computeMonthlyFinances(
             state.regions,
             state.activeProjects,
             state.completedProjects,
           );
+          // Science: completed universities / tech hubs / datacenters raise
+          // the National Tech Level, which gates the advanced tech tree.
+          const techGain = monthlyTechPoints(state.completedProjects);
 
           // Construction progress and completions.
           const ticked = state.activeProjects.map((project) => ({
@@ -263,8 +274,12 @@ export const useGameStore = create<GameStore>()(
             net +
             eventBudgetChange +
             political.budgetDelta;
+          // Exports renew reserves; advanced-project USD upkeep drains them.
           const nextHardCurrency =
-            state.gameState.hardCurrency + political.hardCurrencyDelta;
+            state.gameState.hardCurrency +
+            hardCurrencyNet +
+            political.hardCurrencyDelta;
+          const nextTechLevel = state.gameState.techLevel + techGain;
           const metrics = computeNationalMetrics(regions);
 
           let outcome: GameOutcome | null = null;
@@ -302,6 +317,7 @@ export const useGameStore = create<GameStore>()(
               currentDate: nextDate,
               totalBudget: nextBudget,
               hardCurrency: nextHardCurrency,
+              techLevel: nextTechLevel,
               outcome,
               outcomeReason,
               currentEvent,
@@ -344,7 +360,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -408,6 +424,10 @@ export const useGameStore = create<GameStore>()(
           state.gameState.outcome = null;
           state.gameState.outcomeReason = null;
           state.history = [];
+        }
+        // v8 saves predate the macro-economy; start the tech level at zero.
+        if (version < 9) {
+          state.gameState.techLevel = 0;
         }
         return persisted;
       },

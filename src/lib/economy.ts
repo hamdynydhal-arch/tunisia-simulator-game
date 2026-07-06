@@ -239,6 +239,12 @@ export interface MonthlyFinances {
   expenses: number;
   /** income − expenses; applied to the budget on every tick. */
   net: number;
+  /** Export earnings, million USD/month (renews hard-currency reserves). */
+  hardCurrencyIncome: number;
+  /** Advanced-project upkeep in million USD/month. */
+  hardCurrencyExpense: number;
+  /** hardCurrencyIncome − hardCurrencyExpense; applied to reserves each tick. */
+  hardCurrencyNet: number;
 }
 
 /** Finances for the coming month, derived from the current state. */
@@ -253,6 +259,8 @@ export function computeMonthlyFinances(
   }
 
   let expenses = activeProjects.length * ACTIVE_PROJECT_UPKEEP_TND;
+  let hardCurrencyIncome = 0;
+  let hardCurrencyExpense = 0;
   for (const project of completedProjects) {
     const template = getProjectTemplate(project.projectId);
     if (!template) {
@@ -260,7 +268,27 @@ export function computeMonthlyFinances(
     }
     expenses += template.maintenanceCostTND;
     income += template.directIncomeTND ?? 0;
+    hardCurrencyIncome += template.exportUSD ?? 0;
+    hardCurrencyExpense += template.maintenanceUSD ?? 0;
   }
 
-  return { income, expenses, net: income - expenses };
+  return {
+    income,
+    expenses,
+    net: income - expenses,
+    hardCurrencyIncome,
+    hardCurrencyExpense,
+    hardCurrencyNet: hardCurrencyIncome - hardCurrencyExpense,
+  };
+}
+
+/** Tech points added to the National Tech Level this month. */
+export function monthlyTechPoints(
+  completedProjects: readonly CompletedProject[],
+): number {
+  let points = 0;
+  for (const project of completedProjects) {
+    points += getProjectTemplate(project.projectId)?.techPointsPerMonth ?? 0;
+  }
+  return points;
 }

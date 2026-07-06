@@ -29,10 +29,14 @@ export default function RegionSidebar() {
   const atCapacity = regionProjects.length >= MAX_ACTIVE_PROJECTS_PER_REGION;
 
   // Recommended projects (the region's needs, in priority order) come first.
+  // A project is locked by an unmet tech-tree prerequisite OR by the national
+  // tech level being below its requirement.
   const isLocked = (template: (typeof PROJECT_TEMPLATES)[number]) =>
     (template.requiresCompleted ?? []).some(
       (requiredId) => !region.completedProjects.includes(requiredId),
-    );
+    ) ||
+    (template.requiresTechLevel !== undefined &&
+      gameState.techLevel < template.requiresTechLevel);
   const needRank = (template: (typeof PROJECT_TEMPLATES)[number]) => {
     if (isLocked(template)) {
       return Number.MAX_SAFE_INTEGER; // tech-tree-locked projects sink last
@@ -163,12 +167,20 @@ export default function RegionSidebar() {
               gameState.hardCurrency >= template.costUSD;
             const coastalBlocked =
               (template.requiresCoastal ?? false) && !region.isCoastal;
-            const locked = isLocked(template);
-            const lockReason = locked
-              ? `يتطلب إنجاز: ${(template.requiresCompleted ?? [])
-                  .map((id) => getProjectTemplate(id)?.name ?? id)
-                  .join("، ")}`
-              : undefined;
+            const prereqMissing = (template.requiresCompleted ?? []).filter(
+              (id) => !region.completedProjects.includes(id),
+            );
+            const techLocked =
+              template.requiresTechLevel !== undefined &&
+              gameState.techLevel < template.requiresTechLevel;
+            const locked = prereqMissing.length > 0 || techLocked;
+            const lockReason = techLocked
+              ? `يتطلب مستوى تكنولوجي ${template.requiresTechLevel} (الحالي ${Math.round(gameState.techLevel)})`
+              : prereqMissing.length > 0
+                ? `يتطلب إنجاز: ${prereqMissing
+                    .map((id) => getProjectTemplate(id)?.name ?? id)
+                    .join("، ")}`
+                : undefined;
             return (
               <li
                 key={template.id}
@@ -252,9 +264,24 @@ export default function RegionSidebar() {
                   شهريًا · التشغيل: {formatNumber(template.jobsCreated)} موطن
                   شغل
                 </p>
+                {template.maintenanceUSD !== undefined && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    صيانة بالعملة الصعبة: {template.maintenanceUSD}م $/شهر
+                  </p>
+                )}
                 {template.directIncomeTND !== undefined && (
                   <p className="mt-1 text-xs font-semibold text-emerald-400">
                     العائد المباشر: +{template.directIncomeTND}م د.ت/شهر
+                  </p>
+                )}
+                {template.exportUSD !== undefined && (
+                  <p className="mt-1 text-xs font-semibold text-sky-400">
+                    صادرات: +{template.exportUSD}م $/شهر
+                  </p>
+                )}
+                {template.techPointsPerMonth !== undefined && (
+                  <p className="mt-1 text-xs font-semibold text-violet-300">
+                    🔬 نقاط علمية: +{template.techPointsPerMonth}/شهر
                   </p>
                 )}
               </li>

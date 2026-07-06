@@ -17,11 +17,15 @@ export function formatMillions(value: number, currency: "TND" | "USD"): string {
   return `${moneyFormat.format(value)} مليون ${unit}`;
 }
 
-/** Signed compact cash flow in million TND, e.g. "+25م د.ت" or "-8م د.ت". */
-export function formatNetFlow(value: number): string {
+/**
+ * Signed compact monthly flow in millions, e.g. "+25م د.ت" (TND, default)
+ * or "+5م $" (USD).
+ */
+export function formatNetFlow(value: number, currency: "TND" | "USD" = "TND"): string {
   const rounded = Math.round(value);
   const sign = rounded < 0 ? "-" : "+";
-  return `${sign}${moneyFormat.format(Math.abs(rounded))}م د.ت`;
+  const unit = currency === "TND" ? "م د.ت" : "م $";
+  return `${sign}${moneyFormat.format(Math.abs(rounded))}${unit}`;
 }
 
 /** Arabic month-count phrase with correct grammatical number, e.g. "شهران". */

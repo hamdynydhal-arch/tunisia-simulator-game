@@ -65,6 +65,8 @@ export interface GameState {
   totalBudget: number;
   /** Hard-currency (foreign exchange) reserves, in million USD. */
   hardCurrency: number;
+  /** National Tech Level (accumulated science points), 0 upward. */
+  techLevel: number;
   /** Event that fired this month, if any; cleared on the next tick. */
   currentEvent: GameEvent | null;
   /** Socio-political event awaiting acknowledgement; pauses the game loop. */
@@ -142,14 +144,22 @@ export interface ProjectTemplate {
   durationMonths: number;
   /** Recurring upkeep in million TND per month once the project is completed. */
   maintenanceCostTND: number;
+  /** Recurring upkeep in million USD per month once completed (advanced tech). */
+  maintenanceUSD?: number;
   /** Direct + induced jobs created in the region once completed. */
   jobsCreated: number;
   /** Revenue in million TND per month generated once completed, if any. */
   directIncomeTND?: number;
+  /** Export revenue in million USD per month once completed (renews reserves). */
+  exportUSD?: number;
+  /** Tech points contributed to the National Tech Level each month. */
+  techPointsPerMonth?: number;
   /** Restricts construction to regions with `isCoastal: true`. */
   requiresCoastal?: boolean;
   /** Tech tree: template ids that must be completed in the region first. */
   requiresCompleted?: readonly string[];
+  /** Advanced gating: minimum National Tech Level required to build. */
+  requiresTechLevel?: number;
   effects: ProjectEffects;
 }
 

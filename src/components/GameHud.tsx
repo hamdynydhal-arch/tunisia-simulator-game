@@ -19,7 +19,7 @@ export default function GameHud() {
   const setTimeSpeed = useGameStore((state) => state.setTimeSpeed);
   const toggleDashboard = useGameStore((state) => state.toggleDashboard);
 
-  const { net } = useMemo(
+  const { net, hardCurrencyNet } = useMemo(
     () => computeMonthlyFinances(regions, activeProjects, completedProjects),
     [regions, activeProjects, completedProjects],
   );
@@ -63,8 +63,32 @@ export default function GameHud() {
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-xs text-slate-500">العملة الصعبة</span>
-          <span className="text-sm font-semibold tabular-nums text-slate-100">
+          <span
+            className={`text-sm font-semibold tabular-nums ${
+              gameState.hardCurrency < 0 ? "text-red-400" : "text-slate-100"
+            }`}
+          >
             {formatMillions(gameState.hardCurrency, "USD")}
+          </span>
+          <span
+            dir="ltr"
+            title="صافي تدفق العملة الصعبة الشهري (الصادرات ناقص الصيانة)"
+            className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+              hardCurrencyNet >= 0
+                ? "bg-sky-500/10 text-sky-400"
+                : "bg-red-500/10 text-red-400"
+            }`}
+          >
+            {formatNetFlow(hardCurrencyNet, "USD")}
+          </span>
+        </div>
+        <div
+          className="flex items-baseline gap-2"
+          title="المستوى التكنولوجي الوطني — تراكم نقاط العلوم من الجامعات والأقطاب التكنولوجية"
+        >
+          <span className="text-xs text-slate-500">🔬 التكنولوجيا</span>
+          <span className="text-sm font-bold tabular-nums text-violet-300">
+            {Math.round(gameState.techLevel)}
           </span>
         </div>
         <div className="flex items-baseline gap-2">
