@@ -23,8 +23,10 @@ import {
 } from "@/lib/economy";
 import {
   POLITICAL_COOLDOWN_MONTHS,
+  REGION_EVENT_COOLDOWN_MONTHS,
   evaluatePoliticalEvents,
 } from "@/lib/eventManager";
+import { applyDemographics } from "@/lib/demographics";
 
 const INITIAL_GAME_STATE: GameState = {
   currentDate: "2026-01-01",
@@ -34,6 +36,7 @@ const INITIAL_GAME_STATE: GameState = {
   currentEvent: null,
   politicalEvent: null,
   politicalCooldown: 0,
+  regionEventCooldowns: {},
   boomedRegions: [],
   outcome: null,
   outcomeReason: null,
@@ -248,15 +251,37 @@ export const useGameStore = create<GameStore>()(
             regions = drifted;
           }
 
-          // Socio-political engine (riots / border crises / booms).
+          // Demographics: natural growth + internal migration / brain drain.
+          regions = applyDemographics(regions);
+
+          // Socio-political engine: weighted, seasonal, per-region cooldowns.
+          const elapsingMonth = Number(
+            state.gameState.currentDate.slice(5, 7),
+          );
           const political = evaluatePoliticalEvents({
             regions,
             completedProjects,
-            cooldown: state.gameState.politicalCooldown,
+            globalCooldown: state.gameState.politicalCooldown,
+            regionCooldowns: state.gameState.regionEventCooldowns,
             boomedRegions: state.gameState.boomedRegions,
+            month: elapsingMonth,
           });
           regions = political.regions;
           completedProjects = political.completedProjects;
+
+          // Tick down every per-region cooldown; arm the fired one.
+          const regionEventCooldowns: Record<string, number> = {};
+          for (const [key, months] of Object.entries(
+            state.gameState.regionEventCooldowns,
+          )) {
+            if (months > 1) {
+              regionEventCooldowns[key] = months - 1;
+            }
+          }
+          if (political.cooldownKey) {
+            regionEventCooldowns[political.cooldownKey] =
+              REGION_EVENT_COOLDOWN_MONTHS;
+          }
 
           // Random flavor event, only in politically quiet months.
           let currentEvent: GameEvent | null = null;
@@ -307,6 +332,7 @@ export const useGameStore = create<GameStore>()(
               stability: Math.round(metrics.stability * 10) / 10,
               budget: Math.round(nextBudget),
               hardCurrency: Math.round(nextHardCurrency),
+              population: metrics.totalPopulation,
             },
           ].slice(-HISTORY_LIMIT);
 
@@ -325,6 +351,7 @@ export const useGameStore = create<GameStore>()(
               politicalCooldown: political.event
                 ? POLITICAL_COOLDOWN_MONTHS
                 : Math.max(0, state.gameState.politicalCooldown - 1),
+              regionEventCooldowns,
               boomedRegions: political.boomedRegion
                 ? [...state.gameState.boomedRegions, political.boomedRegion]
                 : state.gameState.boomedRegions,
@@ -360,7 +387,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -428,6 +455,13 @@ export const useGameStore = create<GameStore>()(
         // v8 saves predate the macro-economy; start the tech level at zero.
         if (version < 9) {
           state.gameState.techLevel = 0;
+        }
+        // v9 saves predate demographics and per-region event cooldowns.
+        if (version < 10) {
+          state.gameState.regionEventCooldowns = {};
+          for (const point of state.history) {
+            (point as { population?: number }).population ??= 0;
+          }
         }
         return persisted;
       },

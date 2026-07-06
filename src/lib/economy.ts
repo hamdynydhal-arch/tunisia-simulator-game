@@ -175,6 +175,8 @@ export interface NationalMetrics {
   coastInteriorGap: number;
   /** Population-weighted national unemployment, %. */
   avgUnemployment: number;
+  /** National aggregate population (persons). */
+  totalPopulation: number;
 }
 
 /**
@@ -229,6 +231,7 @@ export function computeNationalMetrics(
     ),
     coastInteriorGap,
     avgUnemployment,
+    totalPopulation: pop,
   };
 }
 

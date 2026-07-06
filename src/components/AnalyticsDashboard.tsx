@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { formatGameDate, formatMillions } from "@/lib/format";
+import { formatGameDate, formatMillions, formatNumber } from "@/lib/format";
 import type { HistoryPoint } from "@/types/game";
 
 // Series colors validated (dataviz six checks) against the dark surface.
@@ -11,6 +11,7 @@ const SERIES = {
   hardCurrency: "#0284c7",
   budget: "#d97706",
   stability: "#9333ea",
+  population: "#0d9488",
 } as const;
 
 const CHART_W = 300;
@@ -222,6 +223,13 @@ export default function AnalyticsDashboard() {
             points={history}
             pick={(p) => p.hardCurrency}
             formatValue={(v) => formatMillions(v, "USD")}
+          />
+          <TrendChart
+            title="عدد السكان الوطني"
+            color={SERIES.population}
+            points={history}
+            pick={(p) => p.population}
+            formatValue={(v) => formatNumber(Math.round(v))}
           />
         </div>
       </div>

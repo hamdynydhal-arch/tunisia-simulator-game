@@ -1,7 +1,7 @@
 "use client";
 
 import { useGameStore } from "@/store/gameStore";
-import { formatNetFlow } from "@/lib/format";
+import { formatNetFlow, formatNumber } from "@/lib/format";
 
 /**
  * Full-screen dialog for socio-political events (riots, border crises,
@@ -23,12 +23,23 @@ export default function PoliticalEventModal() {
     event.effects.budgetChange !== 0 && {
       label: "الميزانية العامة",
       value: event.effects.budgetChange,
+      unit: "TND" as const,
     },
     (event.effects.hardCurrencyChange ?? 0) !== 0 && {
       label: "العملة الصعبة",
       value: event.effects.hardCurrencyChange ?? 0,
+      unit: "USD" as const,
     },
-  ].filter(Boolean) as { label: string; value: number }[];
+    (event.effects.populationChange ?? 0) !== 0 && {
+      label: "السكان",
+      value: event.effects.populationChange ?? 0,
+      unit: "people" as const,
+    },
+  ].filter(Boolean) as {
+    label: string;
+    value: number;
+    unit: "TND" | "USD" | "people";
+  }[];
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
@@ -68,7 +79,9 @@ export default function PoliticalEventModal() {
                     impact.value >= 0 ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
-                  {formatNetFlow(impact.value)}
+                  {impact.unit === "people"
+                    ? `${impact.value >= 0 ? "+" : "-"}${formatNumber(Math.abs(impact.value))}`
+                    : formatNetFlow(impact.value, impact.unit)}
                 </span>
               </div>
             ))}

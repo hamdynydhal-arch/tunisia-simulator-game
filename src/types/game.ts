@@ -41,6 +41,8 @@ export interface EventEffects {
   budgetChange: number;
   /** Applied to `GameState.hardCurrency` the month the event fires, in M USD. */
   hardCurrencyChange?: number;
+  /** Net change to the affected region's population (persons), for display. */
+  populationChange?: number;
 }
 
 /** A random world event that can fire on a monthly tick. */
@@ -71,8 +73,13 @@ export interface GameState {
   currentEvent: GameEvent | null;
   /** Socio-political event awaiting acknowledgement; pauses the game loop. */
   politicalEvent: GameEvent | null;
-  /** Months until the political engine may fire again (pacing). */
+  /** Months until any socio-political event may fire again (global pacing). */
   politicalCooldown: number;
+  /**
+   * Per-(eventType:regionId) cooldown in months, so the same crisis cannot
+   * repeat in the same governorate back-to-back (anti-spam / anti-greedy).
+   */
+  regionEventCooldowns: Record<string, number>;
   /** Regions that already received their one-time FDI boom. */
   boomedRegions: readonly RegionId[];
   /** Terminal state of the campaign, if reached. */
@@ -96,6 +103,8 @@ export interface HistoryPoint {
   budget: number;
   /** Hard-currency reserves, million USD. */
   hardCurrency: number;
+  /** National aggregate population (persons). */
+  population: number;
 }
 
 /** One of the 24 governorates. */
