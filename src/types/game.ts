@@ -39,6 +39,8 @@ export type RegionId = (typeof REGION_IDS)[number];
 export interface EventEffects {
   /** Applied to `GameState.totalBudget` the month the event fires, in M TND. */
   budgetChange: number;
+  /** Applied to `GameState.hardCurrency` the month the event fires, in M USD. */
+  hardCurrencyChange?: number;
 }
 
 /** A random world event that can fire on a monthly tick. */
@@ -46,9 +48,13 @@ export interface GameEvent {
   id: string;
   /** Headline (Arabic). */
   title: string;
-  /** One-sentence flavor text (Arabic). */
+  /** Narrative text (Arabic). */
   description: string;
   effects: EventEffects;
+  /** Socio-political events carry a severity; flavor events omit it. */
+  severity?: "crisis" | "boom";
+  /** The governorate at the center of the event, when regional. */
+  regionId?: RegionId;
 }
 
 /** Global state of the running simulation. */
@@ -61,6 +67,12 @@ export interface GameState {
   hardCurrency: number;
   /** Event that fired this month, if any; cleared on the next tick. */
   currentEvent: GameEvent | null;
+  /** Socio-political event awaiting acknowledgement; pauses the game loop. */
+  politicalEvent: GameEvent | null;
+  /** Months until the political engine may fire again (pacing). */
+  politicalCooldown: number;
+  /** Regions that already received their one-time FDI boom. */
+  boomedRegions: readonly RegionId[];
 }
 
 /** One of the 24 governorates. */

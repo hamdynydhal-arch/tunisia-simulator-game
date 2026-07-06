@@ -19,6 +19,7 @@ export default function GameHud() {
     [regions, activeProjects, completedProjects],
   );
   const national = useMemo(() => computeNationalMetrics(regions), [regions]);
+  const paused = Boolean(gameState.politicalEvent);
 
   const inDebt = gameState.totalBudget < 0;
 
@@ -99,7 +100,9 @@ export default function GameHud() {
         <button
           type="button"
           onClick={advanceTime}
-          className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/50 transition-colors hover:bg-emerald-500 active:bg-emerald-700"
+          disabled={paused}
+          title={paused ? "يجب مراجعة الحدث السياسي أولًا" : undefined}
+          className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/50 transition-colors hover:bg-emerald-500 active:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
         >
           الشهر التالي
         </button>

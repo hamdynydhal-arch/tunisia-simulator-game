@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import type {
   DivIcon,
@@ -16,7 +16,7 @@ import "leaflet/dist/leaflet.css";
 import governoratesJson from "@/data/tunisia-governorates.json";
 import { INITIAL_REGIONS } from "@/data/governorates";
 import { getProjectTemplate } from "@/data/projects";
-import { projectMarkerPosition } from "@/lib/regionPoints";
+import { highwayPath, placeZoneProject } from "@/lib/projectPlacement";
 import { registerMap, unregisterMap } from "@/lib/mapBus";
 import { useGameStore } from "@/store/gameStore";
 import type { RegionId } from "@/types/game";
@@ -145,25 +145,34 @@ function GovernorateLayer() {
   );
 }
 
-/** Emoji glyph shown on the map for each completed project type. */
-const PROJECT_GLYPHS: Record<string, string> = {
-  "regional-hospital": "\u{1F3E5}",
-  highway: "\u{1F6E3}\u{FE0F}",
-  "industrial-zone": "\u{1F3ED}",
-  "commercial-port": "\u2693",
-  "desalination-plant": "\u{1F4A7}",
-  "archaeological-restoration": "\u{1F3DB}\u{FE0F}",
-  "livestock-program": "\u{1F411}",
+/** Emoji glyph and category ring color for each project type. */
+const PROJECT_STYLE: Record<string, { glyph: string; category: string }> = {
+  "regional-hospital": { glyph: "\u{1F3E5}", category: "health" },
+  highway: { glyph: "\u{1F6E3}\u{FE0F}", category: "transport" },
+  "industrial-zone": { glyph: "\u{1F3ED}", category: "economy" },
+  "commercial-port": { glyph: "\u2693", category: "economy" },
+  "desalination-plant": { glyph: "\u{1F4A7}", category: "water" },
+  "archaeological-restoration": { glyph: "\u{1F3DB}\u{FE0F}", category: "heritage" },
+  "livestock-program": { glyph: "\u{1F411}", category: "economy" },
+  "school-network": { glyph: "\u{1F3EB}", category: "knowledge" },
+  university: { glyph: "\u{1F393}", category: "knowledge" },
+  airport: { glyph: "\u2708\u{FE0F}", category: "transport" },
+  "defense-base": { glyph: "\u{1F6E1}\u{FE0F}", category: "security" },
+  "tech-hub": { glyph: "\u{1F4BB}", category: "knowledge" },
 };
+
+/** Projects drawn as lines on the map instead of point markers. */
+const LINEAR_PROJECTS = new Set(["highway"]);
 
 const iconCache = new Map<string, DivIcon>();
 
 function projectIcon(projectId: string): DivIcon {
   let icon = iconCache.get(projectId);
   if (!icon) {
+    const style = PROJECT_STYLE[projectId];
     icon = divIcon({
-      html: `<span>${PROJECT_GLYPHS[projectId] ?? "\u{1F3D7}\u{FE0F}"}</span>`,
-      className: "project-marker",
+      html: `<span>${style?.glyph ?? "\u{1F3D7}\u{FE0F}"}</span>`,
+      className: `project-marker project-marker--${style?.category ?? "economy"}`,
       iconSize: [30, 30],
       iconAnchor: [15, 15],
     });
@@ -172,25 +181,86 @@ function projectIcon(projectId: string): DivIcon {
   return icon;
 }
 
-/** One marker per finished project, anchored inside its governorate. */
-function CompletedProjectMarkers() {
+type PlacedInfrastructure =
+  | { kind: "zone"; instanceId: string; projectId: string; regionId: RegionId; position: [number, number] }
+  | { kind: "line"; instanceId: string; projectId: string; regionId: RegionId; path: [number, number][] };
+
+/**
+ * Completed infrastructure on the map: linear projects (highways) as bent
+ * polylines linking the governorate to a neighbour; zone projects as
+ * procedurally scattered markers strictly inside the polygon, spaced apart.
+ * Clicking any piece of infrastructure selects its governorate.
+ */
+function CompletedInfrastructure() {
   const completedProjects = useGameStore((state) => state.completedProjects);
-  const perRegionCount: Partial<Record<RegionId, number>> = {};
+
+  const placed = useMemo<PlacedInfrastructure[]>(() => {
+    const takenByRegion: Partial<Record<RegionId, [number, number][]>> = {};
+    const linesByRegion: Partial<Record<RegionId, number>> = {};
+    return completedProjects.map((project) => {
+      if (LINEAR_PROJECTS.has(project.projectId)) {
+        const index = linesByRegion[project.regionId] ?? 0;
+        linesByRegion[project.regionId] = index + 1;
+        return {
+          kind: "line" as const,
+          instanceId: project.instanceId,
+          projectId: project.projectId,
+          regionId: project.regionId,
+          path: highwayPath(project.regionId, index),
+        };
+      }
+      const taken = (takenByRegion[project.regionId] ??= []);
+      const position = placeZoneProject(
+        project.regionId,
+        project.instanceId,
+        taken,
+      );
+      taken.push(position);
+      return {
+        kind: "zone" as const,
+        instanceId: project.instanceId,
+        projectId: project.projectId,
+        regionId: project.regionId,
+        position,
+      };
+    });
+  }, [completedProjects]);
 
   return (
     <>
-      {completedProjects.map((project) => {
-        const index = perRegionCount[project.regionId] ?? 0;
-        perRegionCount[project.regionId] = index + 1;
-        const template = getProjectTemplate(project.projectId);
+      {placed.map((item) => {
+        const name =
+          getProjectTemplate(item.projectId)?.name ?? item.projectId;
+        const select = () =>
+          useGameStore.getState().selectRegion(item.regionId);
+        if (item.kind === "line") {
+          return (
+            <Polyline
+              key={item.instanceId}
+              positions={item.path}
+              pathOptions={{
+                color: "#fbbf24",
+                weight: 3,
+                opacity: 0.85,
+                dashArray: "10 6",
+              }}
+              eventHandlers={{ click: select }}
+            >
+              <Tooltip sticky className="region-tooltip">
+                {name}
+              </Tooltip>
+            </Polyline>
+          );
+        }
         return (
           <Marker
-            key={project.instanceId}
-            position={projectMarkerPosition(project.regionId, index)}
-            icon={projectIcon(project.projectId)}
+            key={item.instanceId}
+            position={item.position}
+            icon={projectIcon(item.projectId)}
+            eventHandlers={{ click: select }}
           >
             <Tooltip direction="top" className="region-tooltip">
-              {template?.name ?? project.projectId}
+              {name}
             </Tooltip>
           </Marker>
         );
@@ -234,7 +304,7 @@ export default function TunisiaMap({ className }: TunisiaMapProps) {
         maxZoom={18}
       />
       <GovernorateLayer />
-      <CompletedProjectMarkers />
+      <CompletedInfrastructure />
       <MapBridge />
     </MapContainer>
   );

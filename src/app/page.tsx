@@ -3,6 +3,7 @@ import EventToast from "@/components/EventToast";
 import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
 import MapPanel from "@/components/MapPanel";
+import PoliticalEventModal from "@/components/PoliticalEventModal";
 import RegionSidebar from "@/components/RegionSidebar";
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
       <EventToast />
       <CompletionToasts />
       <FloatingEffects />
+      <PoliticalEventModal />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">
         {/* DOM-first in an RTL row = pinned to the physical right edge on desktop */}

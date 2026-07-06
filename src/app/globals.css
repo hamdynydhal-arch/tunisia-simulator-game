@@ -69,7 +69,7 @@ body {
   display: none;
 }
 
-/* Completed-project markers (Leaflet divIcon). */
+/* Completed-project markers (Leaflet divIcon), ring color by category. */
 .project-marker {
   display: grid;
   place-items: center;
@@ -80,6 +80,13 @@ body {
   border-radius: 9999px;
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
 }
+.project-marker--health { border-color: rgb(248 113 113 / 0.9); }
+.project-marker--knowledge { border-color: rgb(56 189 248 / 0.9); }
+.project-marker--economy { border-color: rgb(52 211 153 / 0.9); }
+.project-marker--water { border-color: rgb(34 211 238 / 0.9); }
+.project-marker--heritage { border-color: rgb(192 132 252 / 0.9); }
+.project-marker--security { border-color: rgb(148 163 184 / 0.95); }
+.project-marker--transport { border-color: rgb(251 191 36 / 0.9); }
 
 /* "+توظيف" / "+ضرائب" rising from the map toward the HUD counters. */
 @keyframes float-to-hud {
