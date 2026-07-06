@@ -18,6 +18,11 @@ export default function RegionSidebar() {
   const gameState = useGameStore((state) => state.gameState);
   const activeProjects = useGameStore((state) => state.activeProjects);
   const startProject = useGameStore((state) => state.startProject);
+  const populationTrend = useGameStore((state) =>
+    state.selectedRegionId
+      ? (state.populationTrends[state.selectedRegionId] ?? 0)
+      : 0,
+  );
 
   if (!region) {
     return null;
@@ -73,8 +78,36 @@ export default function RegionSidebar() {
       <dl className="mt-6 space-y-5">
         <div>
           <dt className="text-xs text-slate-400">عدد السكان</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums text-slate-100">
-            {formatNumber(region.population)}
+          <dd className="mt-1 flex items-center gap-2 text-lg font-medium tabular-nums text-slate-100">
+            <span>{formatNumber(region.population)}</span>
+            {populationTrend !== 0 && (
+              <span
+                dir="ltr"
+                title={
+                  populationTrend > 0
+                    ? "نمو سكاني (توافد) — التغير الشهري"
+                    : "تراجع سكاني (نزوح) — التغير الشهري"
+                }
+                aria-label={
+                  populationTrend > 0
+                    ? `نمو سكاني بمقدار ${formatNumber(populationTrend)} شهريًا`
+                    : `تراجع سكاني بمقدار ${formatNumber(Math.abs(populationTrend))} شهريًا`
+                }
+                className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold ${
+                  populationTrend > 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
+                <svg viewBox="0 0 12 12" className="h-3 w-3 fill-current" aria-hidden="true">
+                  {populationTrend > 0 ? (
+                    <path d="M6 2.5 10 9H2z" />
+                  ) : (
+                    <path d="M6 9.5 2 3h8z" />
+                  )}
+                </svg>
+                {populationTrend > 0 ? "+" : "−"}
+                {formatNumber(Math.abs(populationTrend))}
+              </span>
+            )}
           </dd>
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">

@@ -74,6 +74,8 @@ interface GameStore {
   completionNotices: readonly CompletedProject[];
   /** Rolling monthly snapshots of national indicators (max 60). */
   history: readonly HistoryPoint[];
+  /** Last month's per-region population change (persons), for trend arrows. */
+  populationTrends: Record<RegionId, number>;
   selectedRegionId: RegionId | null;
   /** Auto-advance timer; transient UI state. */
   timeRunning: boolean;
@@ -110,6 +112,7 @@ export const useGameStore = create<GameStore>()(
       completedProjects: [],
       completionNotices: [],
       history: [],
+      populationTrends: {} as Record<RegionId, number>,
       selectedRegionId: null,
       timeRunning: false,
       timeSpeed: 1,
@@ -336,8 +339,17 @@ export const useGameStore = create<GameStore>()(
             },
           ].slice(-HISTORY_LIMIT);
 
+          // Per-region population delta vs the start of this tick (previous
+          // month), for the sidebar's growth/decline trend arrows.
+          const populationTrends = {} as Record<RegionId, number>;
+          for (const id of Object.keys(regions) as RegionId[]) {
+            populationTrends[id] =
+              regions[id].population - state.regions[id].population;
+          }
+
           return {
             history,
+            populationTrends,
             gameState: {
               ...state.gameState,
               currentDate: nextDate,
@@ -379,6 +391,7 @@ export const useGameStore = create<GameStore>()(
           completedProjects: [],
           completionNotices: [],
           history: [],
+          populationTrends: {} as Record<RegionId, number>,
           selectedRegionId: null,
           timeRunning: false,
           dashboardOpen: false,
@@ -473,6 +486,7 @@ export const useGameStore = create<GameStore>()(
         activeProjects: state.activeProjects,
         completedProjects: state.completedProjects,
         history: state.history,
+        populationTrends: state.populationTrends,
       }),
       // SSR and the first client render both use the initial state; the saved
       // campaign is loaded after mount (see StoreHydrator) so the HTML always
