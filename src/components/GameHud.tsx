@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { computeMonthlyFinances } from "@/lib/economy";
+import { computeMonthlyFinances, computeNationalMetrics } from "@/lib/economy";
 import { formatGameDate, formatMillions, formatNetFlow } from "@/lib/format";
 
 /** Top bar showing the global game state, plus the end-turn action. */
@@ -18,6 +18,7 @@ export default function GameHud() {
     () => computeMonthlyFinances(regions, activeProjects, completedProjects),
     [regions, activeProjects, completedProjects],
   );
+  const national = useMemo(() => computeNationalMetrics(regions), [regions]);
 
   const inDebt = gameState.totalBudget < 0;
 
@@ -58,6 +59,30 @@ export default function GameHud() {
           <span className="text-xs text-slate-500">العملة الصعبة</span>
           <span className="text-sm font-semibold tabular-nums text-slate-100">
             {formatMillions(gameState.hardCurrency, "USD")}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs text-slate-500">الناتج الوطني</span>
+          <span className="text-sm font-semibold tabular-nums text-slate-100">
+            {formatMillions(national.gdpAnnual, "TND")}
+            <span className="text-xs font-normal text-slate-500"> سنويًا</span>
+          </span>
+        </div>
+        <div
+          className="flex items-baseline gap-2"
+          title="مزيج التشغيل والتنمية والأمن، مخصومًا منه عقوبة التفاوت بين الساحل والداخل"
+        >
+          <span className="text-xs text-slate-500">الاستقرار</span>
+          <span
+            className={`text-sm font-bold tabular-nums ${
+              national.stability >= 65
+                ? "text-emerald-400"
+                : national.stability >= 45
+                  ? "text-amber-300"
+                  : "text-red-400"
+            }`}
+          >
+            {Math.round(national.stability)}/100
           </span>
         </div>
         <button

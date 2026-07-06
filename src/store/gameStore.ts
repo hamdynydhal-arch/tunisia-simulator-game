@@ -13,6 +13,7 @@ import { getProjectTemplate } from "@/data/projects";
 import { EVENT_CHANCE, GAME_EVENTS } from "@/data/events";
 import {
   MAX_ACTIVE_PROJECTS_PER_REGION,
+  applyMonthlyDrift,
   applyProjectCompletion,
   computeMonthlyFinances,
 } from "@/lib/economy";
@@ -82,6 +83,13 @@ export const useGameStore = create<GameStore>()(
         }
         const { gameState, activeProjects, regions } = get();
         if (template.requiresCoastal && !regions[regionId].isCoastal) {
+          return false;
+        }
+        const prerequisitesMet = (template.requiresCompleted ?? []).every(
+          (requiredId) =>
+            regions[regionId].completedProjects.includes(requiredId),
+        );
+        if (!prerequisitesMet) {
           return false;
         }
         const regionActiveCount = activeProjects.filter(
@@ -158,6 +166,16 @@ export const useGameStore = create<GameStore>()(
                 template,
               );
             }
+          }
+
+          // Neural economy: monthly education→employment→development cascade
+          // runs for every governorate, after any completions of this tick.
+          {
+            const drifted = { ...regions };
+            for (const region of Object.values(regions)) {
+              drifted[region.id] = applyMonthlyDrift(drifted[region.id]);
+            }
+            regions = drifted;
             completedProjects = [
               ...completedProjects,
               ...completed.map(({ instanceId, projectId, regionId }) => ({
@@ -203,7 +221,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -246,6 +264,14 @@ export const useGameStore = create<GameStore>()(
             region.completedProjects = state.completedProjects
               .filter((project) => project.regionId === region.id)
               .map((project) => project.projectId);
+          }
+        }
+        // v5 saves predate the neural economy; backfill education/security.
+        if (version < 6) {
+          for (const region of Object.values(state.regions)) {
+            const seed = INITIAL_REGIONS[region.id];
+            region.educationRate = seed.educationRate;
+            region.securityLevel = seed.securityLevel;
           }
         }
         return persisted;

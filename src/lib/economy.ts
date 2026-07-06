@@ -5,7 +5,7 @@ import type {
   Region,
   RegionId,
 } from "@/types/game";
-import { getProjectTemplate } from "@/data/projects";
+import { UNLOCK_CHAINS, getProjectTemplate } from "@/data/projects";
 
 /** A region may not run more construction sites than this at once. */
 export const MAX_ACTIVE_PROJECTS_PER_REGION = 2;
@@ -23,7 +23,12 @@ const MAX_INFRASTRUCTURE_LEVEL = 10;
 const MAX_DEVELOPMENT_INDEX = 100;
 
 /** Share of regional economic output collected by the state each year. */
-const ANNUAL_TAX_RATE = 0.075;
+export const ANNUAL_TAX_RATE = 0.075;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
  * Monthly tax income of one region in million TND.
@@ -80,26 +85,147 @@ export function applyProjectCompletion(
   );
   const unemploymentDrop = region.unemploymentRate - newUnemploymentRate;
 
+  const completedProjects = [...region.completedProjects, template.id];
+
+  // Dynamic needs: the fulfilled need is retired, and completing a chain
+  // project unlocks the next tier (school → university → tech hub, …).
+  const remainingNeeds = region.currentNeeds.filter(
+    (needId) => needId !== template.id,
+  );
+  const unlockedNeeds = (UNLOCK_CHAINS[template.id] ?? []).filter(
+    (nextId) =>
+      !remainingNeeds.includes(nextId) && !completedProjects.includes(nextId),
+  );
+
   return {
     ...region,
-    infrastructureLevel: Math.min(
+    infrastructureLevel: clamp(
+      region.infrastructureLevel + template.effects.infrastructureChange,
+      0,
       MAX_INFRASTRUCTURE_LEVEL,
-      Math.max(
+    ),
+    unemploymentRate: round2(newUnemploymentRate),
+    developmentIndex: round2(
+      clamp(
+        region.developmentIndex +
+          template.effects.infrastructureChange * 2 +
+          unemploymentDrop * 1.5,
         0,
-        region.infrastructureLevel + template.effects.infrastructureChange,
+        MAX_DEVELOPMENT_INDEX,
       ),
     ),
-    unemploymentRate: Math.round(newUnemploymentRate * 10) / 10,
-    developmentIndex: Math.min(
-      MAX_DEVELOPMENT_INDEX,
-      Math.round(
-        (region.developmentIndex +
-          template.effects.infrastructureChange * 2 +
-          unemploymentDrop * 1.5) *
-          10,
-      ) / 10,
+    educationRate: clamp(
+      region.educationRate + (template.effects.educationChange ?? 0),
+      0,
+      100,
     ),
-    completedProjects: [...region.completedProjects, template.id],
+    securityLevel: clamp(
+      region.securityLevel + (template.effects.securityChange ?? 0),
+      0,
+      100,
+    ),
+    currentNeeds: [...remainingNeeds, ...unlockedNeeds],
+    completedProjects,
+  };
+}
+
+/**
+ * The "neural" monthly cascade, applied to every region on each tick:
+ *
+ *   education → unemployment: attainment above 50 slowly absorbs the
+ *   unemployed pool (up to −0.2 pts/month at 100), below 50 lets it creep
+ *   back up — so a school built today keeps paying off for years;
+ *
+ *   employment + infrastructure + education → development: the index
+ *   converges 3%/month toward the region's structural potential
+ *   (0.35·infra + 0.35·education + 0.30·employment score), which then
+ *   feeds `monthlyRegionIncome` — the regional-wealth link.
+ */
+export function applyMonthlyDrift(region: Region): Region {
+  const unemploymentRate = clamp(
+    region.unemploymentRate - (region.educationRate - 50) * 0.004,
+    MIN_UNEMPLOYMENT_RATE,
+    35,
+  );
+  const employmentScore = clamp(100 - unemploymentRate * 2.5, 0, 100);
+  const potential =
+    0.35 * region.infrastructureLevel * 10 +
+    0.35 * region.educationRate +
+    0.3 * employmentScore;
+  const developmentIndex = clamp(
+    region.developmentIndex + (potential - region.developmentIndex) * 0.03,
+    0,
+    MAX_DEVELOPMENT_INDEX,
+  );
+  return {
+    ...region,
+    unemploymentRate: round2(unemploymentRate),
+    developmentIndex: round2(developmentIndex),
+  };
+}
+
+export interface NationalMetrics {
+  /** Annual national output in million TND (sum of regional output). */
+  gdpAnnual: number;
+  /** Overall national stability, 0–100. */
+  stability: number;
+  /** Population-weighted development gap between coast and interior. */
+  coastInteriorGap: number;
+  /** Population-weighted national unemployment, %. */
+  avgUnemployment: number;
+}
+
+/**
+ * National metrics as population-weighted aggregates of the 24 governorates.
+ * Stability blends employment (40%), development (30%) and security (30%),
+ * then subtracts a wealth-distribution-equity penalty: every point of
+ * coast-vs-interior development gap beyond 15 costs 1.2 stability — growing
+ * the Sahel while ignoring the interior destabilises the whole country.
+ */
+export function computeNationalMetrics(
+  regions: Record<RegionId, Region>,
+): NationalMetrics {
+  let pop = 0;
+  let dev = 0;
+  let sec = 0;
+  let unemp = 0;
+  let coastPop = 0;
+  let coastDev = 0;
+  let interiorPop = 0;
+  let interiorDev = 0;
+  let gdpAnnual = 0;
+
+  for (const region of Object.values(regions)) {
+    pop += region.population;
+    dev += region.developmentIndex * region.population;
+    sec += region.securityLevel * region.population;
+    unemp += region.unemploymentRate * region.population;
+    gdpAnnual += (monthlyRegionIncome(region) * 12) / ANNUAL_TAX_RATE;
+    if (region.isCoastal) {
+      coastPop += region.population;
+      coastDev += region.developmentIndex * region.population;
+    } else {
+      interiorPop += region.population;
+      interiorDev += region.developmentIndex * region.population;
+    }
+  }
+
+  const avgDev = dev / pop;
+  const avgSec = sec / pop;
+  const avgUnemployment = unemp / pop;
+  const employmentScore = clamp(100 - avgUnemployment * 2.5, 0, 100);
+  const coastInteriorGap = coastDev / coastPop - interiorDev / interiorPop;
+  const inequalityPenalty = Math.max(0, coastInteriorGap - 15) * 1.2;
+
+  return {
+    gdpAnnual,
+    stability: clamp(
+      0.4 * employmentScore + 0.3 * avgDev + 0.3 * avgSec - inequalityPenalty,
+      0,
+      100,
+    ),
+    coastInteriorGap,
+    avgUnemployment,
   };
 }
 

@@ -81,7 +81,76 @@ export const PROJECT_TEMPLATES: readonly ProjectTemplate[] = [
     directIncomeTND: 5,
     effects: { infrastructureChange: 1 },
   },
+  {
+    id: "school-network",
+    name: "شبكة مدارس عمومية",
+    costTND: 60,
+    costUSD: 10,
+    durationMonths: 8,
+    maintenanceCostTND: 2,
+    jobsCreated: 2_000,
+    effects: { infrastructureChange: 1, educationChange: 5 },
+  },
+  {
+    // Tech tree: needs a school network in the region first.
+    id: "university",
+    name: "جامعة",
+    costTND: 220,
+    costUSD: 60,
+    durationMonths: 24,
+    maintenanceCostTND: 6,
+    jobsCreated: 4_000,
+    requiresCompleted: ["school-network"],
+    effects: { infrastructureChange: 1, educationChange: 8 },
+  },
+  {
+    // Tech tree: only viable once the governorate is connected by highway.
+    id: "airport",
+    name: "مطار دولي",
+    costTND: 600,
+    costUSD: 280,
+    durationMonths: 30,
+    maintenanceCostTND: 9,
+    jobsCreated: 8_000,
+    directIncomeTND: 15,
+    requiresCompleted: ["highway"],
+    effects: { infrastructureChange: 2 },
+  },
+  {
+    id: "defense-base",
+    name: "قاعدة أمنية وعسكرية",
+    costTND: 150,
+    costUSD: 45,
+    durationMonths: 12,
+    maintenanceCostTND: 6,
+    jobsCreated: 3_000,
+    effects: { infrastructureChange: 1, securityChange: 25 },
+  },
+  {
+    // Tech tree: the summit of the education chain.
+    id: "tech-hub",
+    name: "قطب تكنولوجي متقدم",
+    costTND: 400,
+    costUSD: 150,
+    durationMonths: 20,
+    maintenanceCostTND: 8,
+    jobsCreated: 9_000,
+    directIncomeTND: 25,
+    requiresCompleted: ["university"],
+    effects: { infrastructureChange: 1, educationChange: 3 },
+  },
 ];
+
+/**
+ * Progression chains: completing the key project appends the next tier to
+ * the region's `currentNeeds` (education: school → university → tech hub;
+ * connectivity: highway → airport).
+ */
+export const UNLOCK_CHAINS: Readonly<Record<string, readonly string[]>> = {
+  "school-network": ["university"],
+  university: ["tech-hub"],
+  highway: ["airport"],
+};
 
 const TEMPLATES_BY_ID = new Map(
   PROJECT_TEMPLATES.map((template) => [template.id, template]),

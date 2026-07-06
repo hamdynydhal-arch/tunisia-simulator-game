@@ -29,12 +29,19 @@ export default function RegionSidebar() {
   const atCapacity = regionProjects.length >= MAX_ACTIVE_PROJECTS_PER_REGION;
 
   // Recommended projects (the region's needs, in priority order) come first.
-  const needRank = (templateId: string) => {
-    const rank = region.currentNeeds.indexOf(templateId);
-    return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+  const isLocked = (template: (typeof PROJECT_TEMPLATES)[number]) =>
+    (template.requiresCompleted ?? []).some(
+      (requiredId) => !region.completedProjects.includes(requiredId),
+    );
+  const needRank = (template: (typeof PROJECT_TEMPLATES)[number]) => {
+    if (isLocked(template)) {
+      return Number.MAX_SAFE_INTEGER; // tech-tree-locked projects sink last
+    }
+    const rank = region.currentNeeds.indexOf(template.id);
+    return rank === -1 ? 1_000 : rank;
   };
   const orderedTemplates = [...PROJECT_TEMPLATES].sort(
-    (a, b) => needRank(a.id) - needRank(b.id),
+    (a, b) => needRank(a) - needRank(b),
   );
 
   return (
@@ -66,8 +73,8 @@ export default function RegionSidebar() {
             {formatNumber(region.population)}
           </dd>
         </div>
-        <div className="flex gap-6">
-          <div className="flex-1">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <div>
             <dt className="text-xs text-slate-400">نسبة البطالة</dt>
             <dd
               className={`mt-1 text-lg font-medium tabular-nums ${
@@ -81,10 +88,26 @@ export default function RegionSidebar() {
               {region.unemploymentRate.toFixed(1)}٪
             </dd>
           </div>
-          <div className="flex-1">
+          <div>
             <dt className="text-xs text-slate-400">مؤشر التنمية</dt>
             <dd className="mt-1 text-lg font-medium tabular-nums text-slate-100">
               {Math.round(region.developmentIndex)}/100
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-400">نسبة التعليم</dt>
+            <dd className="mt-1 text-lg font-medium tabular-nums text-slate-100">
+              {Math.round(region.educationRate)}/100
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-400">مستوى الأمن</dt>
+            <dd
+              className={`mt-1 text-lg font-medium tabular-nums ${
+                region.securityLevel < 55 ? "text-red-400" : "text-slate-100"
+              }`}
+            >
+              {Math.round(region.securityLevel)}/100
             </dd>
           </div>
         </div>
@@ -140,6 +163,12 @@ export default function RegionSidebar() {
               gameState.hardCurrency >= template.costUSD;
             const coastalBlocked =
               (template.requiresCoastal ?? false) && !region.isCoastal;
+            const locked = isLocked(template);
+            const lockReason = locked
+              ? `يتطلب إنجاز: ${(template.requiresCompleted ?? [])
+                  .map((id) => getProjectTemplate(id)?.name ?? id)
+                  .join("، ")}`
+              : undefined;
             return (
               <li
                 key={template.id}
@@ -157,6 +186,16 @@ export default function RegionSidebar() {
                         موصى به
                       </span>
                     )}
+                    {locked && (
+                      <span
+                        role="img"
+                        aria-label="مقفل"
+                        title={lockReason}
+                        className="text-xs"
+                      >
+                        🔒
+                      </span>
+                    )}
                     {template.requiresCoastal && (
                       <span
                         role="img"
@@ -171,16 +210,18 @@ export default function RegionSidebar() {
                   <button
                     type="button"
                     onClick={() => startProject(template.id, region.id)}
-                    disabled={coastalBlocked || !affordable || atCapacity}
+                    disabled={locked || coastalBlocked || !affordable || atCapacity}
                     aria-label={`بناء ${template.name}`}
                     title={
-                      coastalBlocked
-                        ? "يتطلب ولاية ساحلية"
-                        : atCapacity
-                          ? "الحد الأقصى للمشاريع النشطة ممتلئ"
-                          : affordable
-                            ? undefined
-                            : "الأموال غير كافية"
+                      locked
+                        ? lockReason
+                        : coastalBlocked
+                          ? "يتطلب ولاية ساحلية"
+                          : atCapacity
+                            ? "الحد الأقصى للمشاريع النشطة ممتلئ"
+                            : affordable
+                              ? undefined
+                              : "الأموال غير كافية"
                     }
                     className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-emerald-500 active:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
                   >
@@ -190,6 +231,11 @@ export default function RegionSidebar() {
                 {coastalBlocked && (
                   <p className="mt-2 text-xs font-medium text-sky-400">
                     🌊 يتطلب ولاية ساحلية
+                  </p>
+                )}
+                {locked && (
+                  <p className="mt-2 text-xs font-medium text-slate-400">
+                    🔒 {lockReason}
                   </p>
                 )}
                 <p className="mt-2 text-xs tabular-nums text-slate-400">

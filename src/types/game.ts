@@ -76,6 +76,10 @@ export interface Region {
   unemploymentRate: number;
   /** Composite socio-economic development index, 0 (lowest) to 100. */
   developmentIndex: number;
+  /** Schooling / higher-education attainment score, 0–100. */
+  educationRate: number;
+  /** Public safety and border security score, 0–100. */
+  securityLevel: number;
   /** `ProjectTemplate.id`s this governorate needs most, in priority order. */
   currentNeeds: readonly string[];
   /** `ProjectTemplate.id`s of projects completed here (may repeat). */
@@ -86,6 +90,10 @@ export interface Region {
 export interface ProjectEffects {
   /** Applied to `Region.infrastructureLevel` on completion (clamped to 0–10). */
   infrastructureChange: number;
+  /** Applied to `Region.educationRate` on completion (clamped to 0–100). */
+  educationChange?: number;
+  /** Applied to `Region.securityLevel` on completion (clamped to 0–100). */
+  securityChange?: number;
 }
 
 /** A buildable development project as offered in the build menu. */
@@ -107,6 +115,8 @@ export interface ProjectTemplate {
   directIncomeTND?: number;
   /** Restricts construction to regions with `isCoastal: true`. */
   requiresCoastal?: boolean;
+  /** Tech tree: template ids that must be completed in the region first. */
+  requiresCompleted?: readonly string[];
   effects: ProjectEffects;
 }
 
