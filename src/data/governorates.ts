@@ -21,7 +21,10 @@ import type { Region, RegionId } from "@/types/game";
  * - infrastructureLevel: 0–10 starting values (drives tax income);
  * - completedProjects: starts empty, appended to as construction finishes.
  */
-const REGION_LIST: readonly Region[] = [
+const REGION_LIST: readonly Omit<
+  Region,
+  "stateSatisfaction" | "nationalBelonging"
+>[] = [
   {
     id: "tunis",
     name: "تونس",
@@ -336,6 +339,40 @@ const REGION_LIST: readonly Region[] = [
   },
 ];
 
+const clampPct = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
+
+/**
+ * Seed values for the socio-demographic variables, derived from each
+ * governorate's development, employment, security and education so the coast
+ * starts content and well-anchored while the marginalized interior starts
+ * lower — the initial gradient the Equation of Belonging then evolves.
+ */
+function seedStateSatisfaction(
+  region: Omit<Region, "stateSatisfaction" | "nationalBelonging">,
+): number {
+  const employment = 100 - region.unemploymentRate * 2.2;
+  return clampPct(
+    0.45 * region.developmentIndex + 0.35 * employment + 0.2 * region.securityLevel,
+  );
+}
+
+function seedNationalBelonging(
+  region: Omit<Region, "stateSatisfaction" | "nationalBelonging">,
+): number {
+  // Belonging starts high across Tunisia (strong national identity) but is
+  // thinner where the state has historically been least present.
+  return clampPct(
+    45 + 0.3 * region.developmentIndex + 0.15 * region.educationRate,
+  );
+}
+
 export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
-  REGION_LIST.map((region) => [region.id, region]),
+  REGION_LIST.map((region) => [
+    region.id,
+    {
+      ...region,
+      stateSatisfaction: seedStateSatisfaction(region),
+      nationalBelonging: seedNationalBelonging(region),
+    },
+  ]),
 ) as Record<RegionId, Region>;

@@ -11,13 +11,17 @@ import { formatNetFlow, formatNumber } from "@/lib/format";
 export default function PoliticalEventModal() {
   const event = useGameStore((state) => state.gameState.politicalEvent ?? null);
   const acknowledge = useGameStore((state) => state.acknowledgePoliticalEvent);
+  const resolveChoice = useGameStore((state) => state.resolvePoliticalChoice);
   const regions = useGameStore((state) => state.regions);
+  const budget = useGameStore((state) => state.gameState.totalBudget);
 
   if (!event) {
     return null;
   }
 
   const isBoom = event.severity === "boom";
+  const isInteractive = Boolean(event.interactive);
+  const SUPPORT_COST = 60;
   const region = event.regionId ? regions[event.regionId] : null;
   const impacts = [
     event.effects.budgetChange !== 0 && {
@@ -58,7 +62,11 @@ export default function PoliticalEventModal() {
               : "bg-red-500/15 text-red-300"
           }`}
         >
-          {isBoom ? "🚀 ازدهار اقتصادي" : "🔥 أزمة سياسية واجتماعية"}
+          {isInteractive
+            ? "🤝 مبادرة مواطنية — قرار الدولة"
+            : isBoom
+              ? "🚀 ازدهار اقتصادي"
+              : "🔥 أزمة سياسية واجتماعية"}
         </span>
         <h2 className="mt-4 text-2xl font-bold text-slate-50">{event.title}</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-300">
@@ -94,17 +102,44 @@ export default function PoliticalEventModal() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={acknowledge}
-          className={`mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-colors ${
-            isBoom
-              ? "bg-emerald-600 hover:bg-emerald-500"
-              : "bg-red-600 hover:bg-red-500"
-          }`}
-        >
-          متابعة الحكم
-        </button>
+        {isInteractive ? (
+          <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => resolveChoice("praise")}
+              className="rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20"
+            >
+              🎖️ ثناء سياسي
+              <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
+                مجاني · دعم معنوي للانتماء
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => resolveChoice("support")}
+              disabled={budget < SUPPORT_COST}
+              title={budget < SUPPORT_COST ? "الميزانية غير كافية" : undefined}
+              className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+            >
+              💰 دعم مالي
+              <span className="mt-0.5 block text-[11px] font-normal text-emerald-100/80">
+                {SUPPORT_COST}م د.ت · تعزيز قوي للانتماء والتنمية
+              </span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={acknowledge}
+            className={`mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-colors ${
+              isBoom
+                ? "bg-emerald-600 hover:bg-emerald-500"
+                : "bg-red-600 hover:bg-red-500"
+            }`}
+          >
+            متابعة الحكم
+          </button>
+        )}
       </div>
     </div>
   );

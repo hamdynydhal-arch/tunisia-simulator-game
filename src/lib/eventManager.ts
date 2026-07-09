@@ -49,6 +49,29 @@ const HERITAGE_REGIONS: readonly RegionId[] = [
   "tataouine",
 ];
 
+/**
+ * Hardcoded terrain/history bias for insurgency & terrorism risk, 0–1.
+ * Anchored to Tunisia's real geography: the Chaambi and Sammama massifs in
+ * Kasserine (highest), the neglected centre-west (Sidi Bouzid, Gafsa,
+ * Kairouan), the north-west mountains (Jendouba, Le Kef) and the southern
+ * desert border (Tataouine, Kébili, Médenine). Regions absent here are not
+ * eligible for terrorism events at all.
+ */
+const TERRAIN_VULNERABILITY: Partial<Record<RegionId, number>> = {
+  kasserine: 1.0,
+  "sidi-bouzid": 0.7,
+  gafsa: 0.55,
+  kairouan: 0.35,
+  jendouba: 0.5,
+  "el-kef": 0.45,
+  tataouine: 0.6,
+  kebili: 0.45,
+  medenine: 0.4,
+};
+
+/** Belonging at or below this in a marginalized region invites vacuum events. */
+const BELONGING_CRITICAL = 40;
+
 /** Global spacing between any two socio-political events (short — the
  *  per-region cooldown now carries anti-spam duty). */
 export const POLITICAL_COOLDOWN_MONTHS = 2;
@@ -266,9 +289,14 @@ export function evaluatePoliticalEvents(
       });
     }
 
-    // ---- Illegal migration (حرقة) / brain drain. ----
+    // ---- Sea migration (حرقة): boats leave only from an ACTUAL coast. A
+    // border governorate — even a coastal one like Médenine — is modelled as
+    // a land frontier here, so its irregular migration is land-based
+    // (smuggling / infiltration) above, never boats. Landlocked Tataouine is
+    // excluded automatically. ----
     if (
-      (region.isCoastal || BORDER_REGIONS.includes(region.id)) &&
+      region.isCoastal &&
+      !BORDER_REGIONS.includes(region.id) &&
       region.unemploymentRate > 20
     ) {
       add("harga", region, (region.unemploymentRate - 20) * 0.22, () => {
@@ -289,6 +317,69 @@ export function evaluatePoliticalEvents(
           }),
         };
       });
+    }
+
+    // ---- Terrorism / armed insurgency: only in terrain-vulnerable regions,
+    // and only once the state has truly receded — collapsed belonging, or
+    // collapsed security in an under-developed governorate. The Chaambi
+    // reality: the mountains fill with what the state left behind. ----
+    const terrain = TERRAIN_VULNERABILITY[region.id] ?? 0;
+    if (terrain > 0 && region.developmentIndex < 48) {
+      const belongingDeficit = Math.max(
+        0,
+        BELONGING_CRITICAL - region.nationalBelonging,
+      );
+      const securityDeficit = Math.max(0, 45 - region.securityLevel);
+      const weight = terrain * (belongingDeficit * 0.05 + securityDeficit * 0.03);
+      add("terrorism", region, weight, () => {
+        const cost = Math.round(70 + securityDeficit * 5);
+        return {
+          ...base,
+          event: {
+            id: `terrorism-${region.id}`,
+            severity: "crisis",
+            regionId: region.id,
+            title: `عملية إرهابية في ${region.name}`,
+            description: `في جبال ${region.name} حيث تراجعت الدولة (الانتماء ${Math.round(region.nationalBelonging)}/100، الأمن ${Math.round(region.securityLevel)}/100)، ملأ التطرف الفراغ. كلّفت العملية الأمنية الخزينة غاليًا وهزّت الاستقرار الوطني.`,
+            effects: { budgetChange: -cost },
+          },
+          regions: withRegion({
+            securityLevel: clamp(region.securityLevel - 15, 0, 100),
+            infrastructureLevel: clamp(region.infrastructureLevel - 1, 0, 10),
+            developmentIndex: clamp(region.developmentIndex - 2, 0, 100),
+            nationalBelonging: clamp(region.nationalBelonging - 3, 0, 100),
+          }),
+          budgetDelta: -cost,
+        };
+      });
+    }
+
+    // ---- Citizen initiative (مبادرة مواطنية): where belonging has fallen but
+    // the community is resilient (educated), citizens organize to fix their
+    // own region. Interactive — the state must decide how to respond. ----
+    const belongingDeficit = Math.max(
+      0,
+      BELONGING_CRITICAL + 5 - region.nationalBelonging,
+    );
+    if (belongingDeficit > 0 && region.developmentIndex < 55) {
+      const resilience = clamp(region.educationRate / 100, 0.2, 0.9);
+      add("citizen-initiative", region, belongingDeficit * 0.05 * resilience, () => ({
+        ...base,
+        event: {
+          id: `citizen-initiative-${region.id}`,
+          severity: "boom",
+          regionId: region.id,
+          title: `مبادرة مواطنية في ${region.name}`,
+          description: `أمام غياب الدولة، نظّم أبناء ${region.name} أنفسهم لترميم مدرسة وإصلاح طرقات جهتهم بسواعدهم. لحظة فارقة: كيف تردّ الدولة؟`,
+          effects: { budgetChange: 0 },
+          interactive: { kind: "citizen-initiative", regionId: region.id },
+        },
+        // Self-organizing already lifts belonging a little; the player's
+        // response (see resolvePoliticalChoice) can lift it much more.
+        regions: withRegion({
+          nationalBelonging: clamp(region.nationalBelonging + 4, 0, 100),
+        }),
+      }));
     }
 
     // ---- Tourism boom: summer on a secure coast. ----

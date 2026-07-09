@@ -57,6 +57,11 @@ export interface GameEvent {
   severity?: "crisis" | "boom";
   /** The governorate at the center of the event, when regional. */
   regionId?: RegionId;
+  /**
+   * Interactive events demand a player decision and pause the game loop
+   * until resolved (see `resolvePoliticalChoice`).
+   */
+  interactive?: { kind: "citizen-initiative"; regionId: RegionId };
 }
 
 /** Global state of the running simulation. */
@@ -128,6 +133,19 @@ export interface Region {
   currentNeeds: readonly string[];
   /** `ProjectTemplate.id`s of projects completed here (may repeat). */
   completedProjects: readonly string[];
+  /**
+   * رضا المواطنين — short-term citizen satisfaction with the state, 0–100.
+   * Volatile: reacts quickly to jobs, services and events; low values fuel
+   * protests, riots and strikes.
+   */
+  stateSatisfaction: number;
+  /**
+   * الانتماء الوطني — deep sense of national belonging, 0–100. Slow and
+   * inertial: erodes only under prolonged neglect (low development + low
+   * education + low satisfaction). When it collapses in a marginalized
+   * region, the state's absence invites either extremism or civic self-help.
+   */
+  nationalBelonging: number;
 }
 
 /** Region-level consequences of a completed project. */

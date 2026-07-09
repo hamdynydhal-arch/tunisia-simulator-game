@@ -147,6 +147,34 @@ export default function RegionSidebar() {
               {Math.round(region.securityLevel)}/100
             </dd>
           </div>
+          <div>
+            <dt className="text-xs text-slate-400">رضا المواطنين</dt>
+            <dd
+              className={`mt-1 text-lg font-medium tabular-nums ${
+                region.stateSatisfaction < 40
+                  ? "text-red-400"
+                  : region.stateSatisfaction < 55
+                    ? "text-amber-300"
+                    : "text-emerald-400"
+              }`}
+            >
+              {Math.round(region.stateSatisfaction)}/100
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-400">الانتماء الوطني</dt>
+            <dd
+              className={`mt-1 text-lg font-medium tabular-nums ${
+                region.nationalBelonging < 40
+                  ? "text-red-400"
+                  : region.nationalBelonging < 60
+                    ? "text-amber-300"
+                    : "text-emerald-400"
+              }`}
+            >
+              {Math.round(region.nationalBelonging)}/100
+            </dd>
+          </div>
         </div>
         {region.currentNeeds.length > 0 && (
           <div>

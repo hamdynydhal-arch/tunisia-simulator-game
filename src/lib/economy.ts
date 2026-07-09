@@ -153,10 +153,19 @@ export function applyProjectCompletion(
       0,
       100,
     ),
+    // A visible state investment lifts satisfaction sharply and belonging a
+    // little — the citizens see the state showing up.
+    stateSatisfaction: clamp(region.stateSatisfaction + 6, 0, 100),
+    nationalBelonging: clamp(region.nationalBelonging + 2, 0, 100),
     currentNeeds: [...remainingNeeds, ...unlockedNeeds],
     completedProjects,
   };
 }
+
+/** Belonging erodes only when development, education AND satisfaction are all low. */
+const NEGLECT_DEVELOPMENT = 45;
+const NEGLECT_EDUCATION = 50;
+const NEGLECT_SATISFACTION = 45;
 
 /**
  * The "neural" monthly cascade, applied to every region on each tick:
@@ -186,10 +195,43 @@ export function applyMonthlyDrift(region: Region): Region {
     0,
     MAX_DEVELOPMENT_INDEX,
   );
+
+  // The Equation of Belonging.
+  // 1. StateSatisfaction is fast: it chases a target set by present-day
+  //    development, employment and security, converging ~18%/month — so anger
+  //    builds or eases within a year of conditions changing.
+  const satisfactionTarget = clamp(
+    0.45 * developmentIndex + 0.35 * employmentScore + 0.2 * region.securityLevel,
+    0,
+    100,
+  );
+  const stateSatisfaction = clamp(
+    region.stateSatisfaction +
+      (satisfactionTarget - region.stateSatisfaction) * 0.18,
+    0,
+    100,
+  );
+  // 2. NationalBelonging is slow and inertial: it erodes ONLY under compound
+  //    neglect (low development AND education AND satisfaction), and recovers
+  //    gently when a region is clearly doing well. Otherwise it holds.
+  const neglected =
+    developmentIndex < NEGLECT_DEVELOPMENT &&
+    region.educationRate < NEGLECT_EDUCATION &&
+    stateSatisfaction < NEGLECT_SATISFACTION;
+  const flourishing = developmentIndex > 55 && stateSatisfaction > 58;
+  const belongingDelta = neglected ? -0.5 : flourishing ? 0.25 : 0;
+  const nationalBelonging = clamp(
+    region.nationalBelonging + belongingDelta,
+    0,
+    100,
+  );
+
   return {
     ...region,
     unemploymentRate: round2(unemploymentRate),
     developmentIndex: round2(developmentIndex),
+    stateSatisfaction: round2(stateSatisfaction),
+    nationalBelonging: round2(nationalBelonging),
   };
 }
 

@@ -89,6 +89,12 @@ interface GameStore {
   /** Closes the socio-political modal and lets the game loop resume. */
   acknowledgePoliticalEvent: () => void;
   /**
+   * Resolves an interactive event (currently the Citizen Initiative): the
+   * state responds with political praise (free, modest belonging gain) or
+   * financial support (costs TND, larger belonging + development gain).
+   */
+  resolvePoliticalChoice: (choice: "praise" | "support") => void;
+  /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
    */
@@ -139,6 +145,47 @@ export const useGameStore = create<GameStore>()(
         set((state) => ({
           gameState: { ...state.gameState, politicalEvent: null },
         })),
+
+      resolvePoliticalChoice: (choice) =>
+        set((state) => {
+          const event = state.gameState.politicalEvent;
+          if (!event?.interactive) {
+            return state;
+          }
+          const { regionId } = event.interactive;
+          const region = state.regions[regionId];
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+
+          // Praise: a free morale gesture. Support: real money, real impact.
+          const belongingGain = choice === "support" ? 18 : 8;
+          const satisfactionGain = choice === "support" ? 8 : 4;
+          const cost = choice === "support" ? 60 : 0;
+          const infraGain = choice === "support" ? 1 : 0;
+
+          return {
+            gameState: {
+              ...state.gameState,
+              politicalEvent: null,
+              totalBudget: state.gameState.totalBudget - cost,
+            },
+            regions: {
+              ...state.regions,
+              [regionId]: {
+                ...region,
+                nationalBelonging: clampPct(
+                  region.nationalBelonging + belongingGain,
+                ),
+                stateSatisfaction: clampPct(
+                  region.stateSatisfaction + satisfactionGain,
+                ),
+                infrastructureLevel: Math.min(
+                  10,
+                  region.infrastructureLevel + infraGain,
+                ),
+              },
+            },
+          };
+        }),
 
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
@@ -400,7 +447,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 11,
+      version: 12,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -497,6 +544,15 @@ export const useGameStore = create<GameStore>()(
             }
             return true;
           });
+        }
+        // v11 → v12: the socio-demographic engine. Backfill each region's
+        // satisfaction and belonging from the seed values.
+        if (version < 12) {
+          for (const region of Object.values(state.regions)) {
+            const seed = INITIAL_REGIONS[region.id];
+            region.stateSatisfaction ??= seed.stateSatisfaction;
+            region.nationalBelonging ??= seed.nationalBelonging;
+          }
         }
         return persisted;
       },
