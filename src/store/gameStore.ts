@@ -400,7 +400,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -475,6 +475,28 @@ export const useGameStore = create<GameStore>()(
           for (const point of state.history) {
             (point as { population?: number }).population ??= 0;
           }
+        }
+        // v10 → v11: the Living Map derives its choropleth, construction rings
+        // and event markers entirely from existing state (regions,
+        // activeProjects.monthsRemaining, regionEventCooldowns). No new fields
+        // are stored; this guard simply guarantees old saves carry valid
+        // construction timers and an event-cooldown map so the new overlays
+        // render without gaps.
+        if (version < 11) {
+          state.gameState.regionEventCooldowns ??= {};
+          state.activeProjects = state.activeProjects.filter((project) => {
+            const template = getProjectTemplate(project.projectId);
+            if (!template) {
+              return false;
+            }
+            if (
+              typeof project.monthsRemaining !== "number" ||
+              project.monthsRemaining < 0
+            ) {
+              project.monthsRemaining = template.durationMonths;
+            }
+            return true;
+          });
         }
         return persisted;
       },

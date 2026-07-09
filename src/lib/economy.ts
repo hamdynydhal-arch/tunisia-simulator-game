@@ -31,6 +31,35 @@ const clamp = (value: number, min: number, max: number) =>
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
+ * A region's crisis score, 0 (thriving) → 1 (urgent). Weighs high
+ * unemployment (55%) against low development (45%) — the two levers the
+ * player pulls. Drives the map choropleth.
+ */
+export function crisisScore(region: Region): number {
+  const jobless = clamp((region.unemploymentRate - 4) / (30 - 4), 0, 1);
+  const underdeveloped = clamp(1 - region.developmentIndex / 100, 0, 1);
+  return clamp(0.55 * jobless + 0.45 * underdeveloped, 0, 1);
+}
+
+// Choropleth stops: emerald (thriving) → amber (moderate) → deep red (crisis).
+const CRISIS_STOPS: readonly (readonly [number, number, number])[] = [
+  [16, 185, 129],
+  [245, 158, 11],
+  [220, 38, 38],
+];
+
+/** Maps a 0→1 crisis score to a smooth green→amber→red `rgb(...)` string. */
+export function crisisColor(score: number): string {
+  const t = clamp(score, 0, 1) * 2;
+  const i = t < 1 ? 0 : 1;
+  const f = t < 1 ? t : t - 1;
+  const a = CRISIS_STOPS[i];
+  const b = CRISIS_STOPS[i + 1];
+  const mix = a.map((v, k) => Math.round(v + (b[k] - v) * f));
+  return `rgb(${mix[0]} ${mix[1]} ${mix[2]})`;
+}
+
+/**
  * Monthly tax income of one region in million TND.
  *
  * Model: each employed worker produces ~1,000 TND of taxable annual output,

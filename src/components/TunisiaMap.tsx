@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import type {
@@ -17,9 +17,11 @@ import governoratesJson from "@/data/tunisia-governorates.json";
 import { INITIAL_REGIONS } from "@/data/governorates";
 import { getProjectTemplate } from "@/data/projects";
 import { highwayPath, placeZoneProject } from "@/lib/projectPlacement";
+import { REGION_POINTS } from "@/lib/regionPoints";
+import { crisisColor, crisisScore } from "@/lib/economy";
 import { registerMap, unregisterMap } from "@/lib/mapBus";
 import { useGameStore } from "@/store/gameStore";
-import type { RegionId } from "@/types/game";
+import type { Region, RegionId } from "@/types/game";
 
 interface GovernorateProperties {
   id: RegionId;
@@ -45,48 +47,43 @@ const PAN_BOUNDS: LatLngBoundsExpression = [
   [42, 20],
 ];
 
-// Bright, slightly translucent strokes with near-transparent fills so the
-// governorate outlines stay crisp over satellite imagery without hiding it.
-const BASE_STYLE: PathOptions = {
-  color: "#f8fafc",
-  weight: 1.5,
-  opacity: 0.75,
-  fillColor: "#0f172a",
-  fillOpacity: 0.08,
-};
-const HOVER_STYLE: PathOptions = {
-  color: "#fbbf24",
-  weight: 2.5,
-  opacity: 1,
-  fillColor: "#f59e0b",
-  fillOpacity: 0.22,
-};
-const SELECTED_STYLE: PathOptions = {
-  color: "#34d399",
-  weight: 3,
-  opacity: 1,
-  fillColor: "#10b981",
-  fillOpacity: 0.22,
-};
-
 function toggleRegion(id: RegionId) {
   const { selectedRegionId, selectRegion } = useGameStore.getState();
   selectRegion(selectedRegionId === id ? null : id);
 }
 
+/**
+ * Choropleth style for a governorate: the fill is its live crisis-score
+ * color (green→amber→red) at ~30% opacity so the satellite imagery shows
+ * through, heavily tinted. Hover and selection change only the STROKE and
+ * a slight opacity bump, so the heatmap stays readable in every state.
+ */
+function styleForRegion(
+  region: Region,
+  isSelected: boolean,
+  isHovered: boolean,
+): PathOptions {
+  const fillColor = crisisColor(crisisScore(region));
+  if (isSelected) {
+    return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.42 };
+  }
+  if (isHovered) {
+    return { color: "#fbbf24", weight: 2.5, opacity: 1, fillColor, fillOpacity: 0.4 };
+  }
+  return { color: "#f8fafc", weight: 1, opacity: 0.7, fillColor, fillOpacity: 0.3 };
+}
+
 function GovernorateLayer() {
   const selectedRegionId = useGameStore((state) => state.selectedRegionId);
+  const regions = useGameStore((state) => state.regions);
   const [hoveredId, setHoveredId] = useState<RegionId | null>(null);
   const layerRef = useRef<LeafletGeoJSON | null>(null);
 
   const styleFor = (id: RegionId): PathOptions =>
-    id === selectedRegionId
-      ? SELECTED_STYLE
-      : id === hoveredId
-        ? HOVER_STYLE
-        : BASE_STYLE;
+    styleForRegion(regions[id], id === selectedRegionId, id === hoveredId);
 
-  // Leaflet layers are imperative: restyle them when hover/selection changes.
+  // Leaflet layers are imperative: restyle them when hover, selection, or the
+  // regions' socio-economic state (hence the choropleth colors) changes.
   useEffect(() => {
     layerRef.current?.eachLayer((layer) => {
       const path = layer as Path & { feature?: GovernorateFeature };
@@ -164,10 +161,13 @@ const PROJECT_STYLE: Record<string, { glyph: string; category: string }> = {
 /** Projects drawn as lines on the map instead of point markers. */
 const LINEAR_PROJECTS = new Set(["highway"]);
 
-const iconCache = new Map<string, DivIcon>();
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
+const completedIconCache = new Map<string, DivIcon>();
+
+/** Final, solid marker for a completed zone project. */
 function projectIcon(projectId: string): DivIcon {
-  let icon = iconCache.get(projectId);
+  let icon = completedIconCache.get(projectId);
   if (!icon) {
     const style = PROJECT_STYLE[projectId];
     icon = divIcon({
@@ -176,75 +176,72 @@ function projectIcon(projectId: string): DivIcon {
       iconSize: [30, 30],
       iconAnchor: [15, 15],
     });
-    iconCache.set(projectId, icon);
+    completedIconCache.set(projectId, icon);
   }
   return icon;
 }
 
-type PlacedInfrastructure =
-  | { kind: "zone"; instanceId: string; projectId: string; regionId: RegionId; position: [number, number] }
-  | { kind: "line"; instanceId: string; projectId: string; regionId: RegionId; path: [number, number][] };
+const RING_RADIUS = 13;
+const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 
 /**
- * Completed infrastructure on the map: linear projects (highways) as bent
- * polylines linking the governorate to a neighbour; zone projects as
- * procedurally scattered markers strictly inside the polygon, spaced apart.
- * Clicking any piece of infrastructure selects its governorate.
+ * Under-construction marker: the project glyph inside an animated circular
+ * progress ring whose amber arc fills clockwise as the months elapse. A
+ * fresh icon is built each tick so the arc advances toward 100%.
  */
-function CompletedInfrastructure() {
-  const completedProjects = useGameStore((state) => state.completedProjects);
+function constructionIcon(projectId: string, progress: number): DivIcon {
+  const glyph = PROJECT_STYLE[projectId]?.glyph ?? "\u{1F3D7}\u{FE0F}";
+  const offset = (RING_CIRC * (1 - clamp01(progress))).toFixed(1);
+  const pct = Math.round(clamp01(progress) * 100);
+  return divIcon({
+    className: "construction-marker",
+    html:
+      `<div class="cm-wrap" role="img" aria-label="قيد الإنجاز ${pct}٪">` +
+      `<svg viewBox="0 0 32 32" class="cm-ring">` +
+      `<circle class="cm-track" cx="16" cy="16" r="${RING_RADIUS}"/>` +
+      `<circle class="cm-prog" cx="16" cy="16" r="${RING_RADIUS}" ` +
+      `stroke-dasharray="${RING_CIRC.toFixed(1)}" stroke-dashoffset="${offset}" ` +
+      `transform="rotate(-90 16 16)"/>` +
+      `</svg>` +
+      `<span class="cm-glyph">${glyph}</span>` +
+      `</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+}
 
-  const placed = useMemo<PlacedInfrastructure[]>(() => {
-    const takenByRegion: Partial<Record<RegionId, [number, number][]>> = {};
-    const linesByRegion: Partial<Record<RegionId, number>> = {};
-    return completedProjects.map((project) => {
-      if (LINEAR_PROJECTS.has(project.projectId)) {
-        const index = linesByRegion[project.regionId] ?? 0;
-        linesByRegion[project.regionId] = index + 1;
-        return {
-          kind: "line" as const,
-          instanceId: project.instanceId,
-          projectId: project.projectId,
-          regionId: project.regionId,
-          path: highwayPath(project.regionId, index),
-        };
-      }
-      const taken = (takenByRegion[project.regionId] ??= []);
-      const position = placeZoneProject(
-        project.regionId,
-        project.instanceId,
-        taken,
-      );
-      taken.push(position);
-      return {
-        kind: "zone" as const,
-        instanceId: project.instanceId,
-        projectId: project.projectId,
-        regionId: project.regionId,
-        position,
-      };
-    });
-  }, [completedProjects]);
+/**
+ * All project infrastructure on the map, in both states. Completed projects
+ * render as solid markers (or amber highway polylines); active projects
+ * render at the SAME procedurally-placed spot in an under-construction state
+ * (progress ring / faint dashed road) and swap to the final icon on
+ * completion — the position never jumps because placement is pure in the
+ * project's instance id.
+ */
+function MapInfrastructure() {
+  const activeProjects = useGameStore((state) => state.activeProjects);
+  const completedProjects = useGameStore((state) => state.completedProjects);
+  const select = (regionId: RegionId) =>
+    useGameStore.getState().selectRegion(regionId);
 
   return (
     <>
-      {placed.map((item) => {
+      {/* Completed */}
+      {completedProjects.map((project) => {
         const name =
-          getProjectTemplate(item.projectId)?.name ?? item.projectId;
-        const select = () =>
-          useGameStore.getState().selectRegion(item.regionId);
-        if (item.kind === "line") {
+          getProjectTemplate(project.projectId)?.name ?? project.projectId;
+        if (LINEAR_PROJECTS.has(project.projectId)) {
           return (
             <Polyline
-              key={item.instanceId}
-              positions={item.path}
+              key={project.instanceId}
+              positions={highwayPath(project.regionId, project.instanceId)}
               pathOptions={{
                 color: "#fbbf24",
                 weight: 3,
                 opacity: 0.85,
                 dashArray: "10 6",
               }}
-              eventHandlers={{ click: select }}
+              eventHandlers={{ click: () => select(project.regionId) }}
             >
               <Tooltip sticky className="region-tooltip">
                 {name}
@@ -254,10 +251,10 @@ function CompletedInfrastructure() {
         }
         return (
           <Marker
-            key={item.instanceId}
-            position={item.position}
-            icon={projectIcon(item.projectId)}
-            eventHandlers={{ click: select }}
+            key={project.instanceId}
+            position={placeZoneProject(project.regionId, project.instanceId)}
+            icon={projectIcon(project.projectId)}
+            eventHandlers={{ click: () => select(project.regionId) }}
           >
             <Tooltip direction="top" className="region-tooltip">
               {name}
@@ -265,6 +262,126 @@ function CompletedInfrastructure() {
           </Marker>
         );
       })}
+
+      {/* Under construction */}
+      {activeProjects.map((project) => {
+        const template = getProjectTemplate(project.projectId);
+        const duration = template?.durationMonths ?? 1;
+        const progress = clamp01((duration - project.monthsRemaining) / duration);
+        const pct = Math.round(progress * 100);
+        const name = template?.name ?? project.projectId;
+        if (LINEAR_PROJECTS.has(project.projectId)) {
+          return (
+            <Polyline
+              key={project.instanceId}
+              positions={highwayPath(project.regionId, project.instanceId)}
+              pathOptions={{
+                color: "#94a3b8",
+                weight: 2,
+                opacity: 0.55,
+                dashArray: "4 8",
+              }}
+              eventHandlers={{ click: () => select(project.regionId) }}
+            >
+              <Tooltip sticky className="region-tooltip">
+                {name} — قيد الإنجاز {pct}٪
+              </Tooltip>
+            </Polyline>
+          );
+        }
+        return (
+          <Marker
+            key={project.instanceId}
+            position={placeZoneProject(project.regionId, project.instanceId)}
+            icon={constructionIcon(project.projectId, progress)}
+            eventHandlers={{ click: () => select(project.regionId) }}
+          >
+            <Tooltip direction="top" className="region-tooltip">
+              {name} — قيد الإنجاز {pct}٪
+            </Tooltip>
+          </Marker>
+        );
+      })}
+    </>
+  );
+}
+
+/** Icon, color class, and label for each active-event map marker. */
+const EVENT_MARKER: Record<
+  string,
+  { glyph: string; kind: "crisis" | "boom"; label: string }
+> = {
+  riots: { glyph: "\u{1F525}", kind: "crisis", label: "احتجاجات" },
+  "border-crisis": { glyph: "\u{1F6A8}", kind: "crisis", label: "أزمة حدودية" },
+  smuggling: { glyph: "\u{1F4E6}", kind: "crisis", label: "تهريب" },
+  harga: { glyph: "\u{26F5}", kind: "crisis", label: "هجرة غير نظامية" },
+  tourism: { glyph: "\u{1F389}", kind: "boom", label: "موسم سياحي" },
+  harvest: { glyph: "\u{1F33E}", kind: "boom", label: "موسم فلاحي" },
+  festival: { glyph: "\u{1F3AD}", kind: "boom", label: "مهرجان ثقافي" },
+  fdi: { glyph: "⭐", kind: "boom", label: "استثمار أجنبي" },
+};
+
+const eventIconCache = new Map<string, DivIcon>();
+
+function eventIcon(type: string): DivIcon {
+  let icon = eventIconCache.get(type);
+  if (!icon) {
+    const marker = EVENT_MARKER[type];
+    icon = divIcon({
+      className: `event-marker event-marker--${marker.kind}`,
+      html: `<span>${marker.glyph}</span>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+    eventIconCache.set(type, icon);
+  }
+  return icon;
+}
+
+/**
+ * Pulsing markers for every active socio-political event, derived from the
+ * per-region event cooldowns so each persists exactly as long as its event's
+ * impact window. Placed above the governorate's centre; several in one region
+ * fan out so they never fully overlap.
+ */
+function EventMarkers() {
+  const cooldowns = useGameStore(
+    (state) => state.gameState.regionEventCooldowns,
+  );
+  const perRegion: Partial<Record<RegionId, number>> = {};
+
+  return (
+    <>
+      {Object.entries(cooldowns)
+        .filter(([, months]) => months > 0)
+        .map(([key, months]) => {
+          const [type, regionId] = key.split(":") as [string, RegionId];
+          const marker = EVENT_MARKER[type];
+          if (!marker || !REGION_POINTS[regionId]) {
+            return null;
+          }
+          const index = (perRegion[regionId] = (perRegion[regionId] ?? -1) + 1);
+          const [lat, lng] = REGION_POINTS[regionId];
+          const position: [number, number] = [
+            lat + 0.16,
+            lng + (index - 0.5) * 0.14,
+          ];
+          return (
+            <Marker
+              key={key}
+              position={position}
+              icon={eventIcon(type)}
+              zIndexOffset={1000}
+              eventHandlers={{
+                click: () => useGameStore.getState().selectRegion(regionId),
+              }}
+            >
+              <Tooltip direction="top" className="region-tooltip">
+                {marker.label} — متبقي {months} شهرًا
+              </Tooltip>
+            </Marker>
+          );
+        })}
     </>
   );
 }
@@ -304,7 +421,8 @@ export default function TunisiaMap({ className }: TunisiaMapProps) {
         maxZoom={18}
       />
       <GovernorateLayer />
-      <CompletedInfrastructure />
+      <MapInfrastructure />
+      <EventMarkers />
       <MapBridge />
     </MapContainer>
   );

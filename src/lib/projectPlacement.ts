@@ -97,9 +97,6 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** Minimum spacing between two zone projects in one region, in degrees. */
-const MIN_SPACING_DEG = 0.07;
-
 /**
  * Procedural placement of a zone project: a pseudo-random point seeded by
  * the instance id (stable across renders and reloads), rejection-sampled to
@@ -109,28 +106,21 @@ const MIN_SPACING_DEG = 0.07;
 export function placeZoneProject(
   regionId: RegionId,
   instanceId: string,
-  taken: readonly [number, number][],
 ): [number, number] {
   const rand = mulberry32(hashString(instanceId));
   const [minLng, minLat, maxLng, maxLat] = BBOX_BY_REGION[regionId];
-  let fallback: [number, number] | null = null;
 
-  for (let attempt = 0; attempt < 80; attempt++) {
+  // Pure in `(regionId, instanceId)` so a marker keeps its exact spot when it
+  // transitions from under-construction to completed. The seeded sampler and
+  // the polygon shape spread markers naturally without a mutable spacing set.
+  for (let attempt = 0; attempt < 120; attempt++) {
     const lng = minLng + rand() * (maxLng - minLng);
     const lat = minLat + rand() * (maxLat - minLat);
-    if (!isInsideRegion(regionId, lat, lng)) {
-      continue;
-    }
-    fallback ??= [lat, lng];
-    const spaced = taken.every(
-      ([takenLat, takenLng]) =>
-        Math.hypot(takenLat - lat, takenLng - lng) >= MIN_SPACING_DEG,
-    );
-    if (spaced) {
+    if (isInsideRegion(regionId, lat, lng)) {
       return [lat, lng];
     }
   }
-  return fallback ?? REGION_POINTS[regionId];
+  return REGION_POINTS[regionId];
 }
 
 /** Region anchor points sorted by distance from each governorate. */
@@ -158,11 +148,15 @@ const NEIGHBORS_BY_REGION = Object.fromEntries(
  */
 export function highwayPath(
   regionId: RegionId,
-  index: number,
+  instanceId: string,
 ): [number, number][] {
   const from = REGION_POINTS[regionId];
   const neighbors = NEIGHBORS_BY_REGION[regionId];
-  const to = REGION_POINTS[neighbors[Math.min(index, neighbors.length - 1)]];
+  // Deterministic neighbour + bend from the instance id, so the road is
+  // stable across the construction → completed transition.
+  const hash = hashString(instanceId);
+  const index = hash % Math.min(4, neighbors.length);
+  const to = REGION_POINTS[neighbors[index]];
 
   // Perpendicular bend at the midpoint, alternating sides per highway.
   const midLat = (from[0] + to[0]) / 2;

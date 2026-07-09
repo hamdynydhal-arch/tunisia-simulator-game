@@ -88,6 +88,83 @@ body {
 .project-marker--security { border-color: rgb(148 163 184 / 0.95); }
 .project-marker--transport { border-color: rgb(251 191 36 / 0.9); }
 
+/* Under-construction marker: glyph inside an animated amber progress ring. */
+.construction-marker .cm-wrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  animation: cm-pulse 1.8s ease-in-out infinite;
+}
+.construction-marker .cm-ring {
+  position: absolute;
+  inset: 0;
+  width: 36px;
+  height: 36px;
+}
+.construction-marker .cm-track {
+  fill: rgb(15 23 42 / 0.9);
+  stroke: rgb(71 85 105 / 0.7);
+  stroke-width: 3;
+}
+.construction-marker .cm-prog {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease;
+}
+.construction-marker .cm-glyph {
+  position: relative;
+  font-size: 13px;
+  line-height: 1;
+  filter: grayscale(0.35) opacity(0.9);
+}
+@keyframes cm-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+/* Active socio-political event markers: a pulsing ring by severity. */
+.event-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 9999px;
+  background: rgb(15 23 42 / 0.9);
+  border: 2px solid;
+}
+.event-marker--crisis {
+  border-color: #ef4444;
+  animation: ev-pulse-crisis 1.4s ease-out infinite;
+}
+.event-marker--boom {
+  border-color: #10b981;
+  animation: ev-pulse-boom 1.8s ease-out infinite;
+}
+@keyframes ev-pulse-crisis {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.6); }
+  70% { box-shadow: 0 0 0 12px rgb(239 68 68 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); }
+}
+@keyframes ev-pulse-boom {
+  0% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0.5); }
+  70% { box-shadow: 0 0 0 10px rgb(16 185 129 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .construction-marker .cm-wrap,
+  .event-marker--crisis,
+  .event-marker--boom {
+    animation: none;
+  }
+}
+
 /* "+توظيف" / "+ضرائب" rising from the map toward the HUD counters. */
 @keyframes float-to-hud {
   0% {
