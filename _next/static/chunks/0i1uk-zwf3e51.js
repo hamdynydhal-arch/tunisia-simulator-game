@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,65247,e=>{"use strict";var t=e.i(71645),r=e.i(88601);e.s(["default",0,function(){return(0,t.useEffect)(()=>{r.useGameStore.persist.rehydrate()},[]),null}])}]);
