@@ -91,6 +91,40 @@ export default function GameHud() {
             {Math.round(gameState.techLevel)}
           </span>
         </div>
+        <div
+          className="flex items-baseline gap-2"
+          title="رضا المواطنين — معدّل وطني مرجّح بعدد سكان كل ولاية"
+        >
+          <span className="text-xs text-slate-500">🙂 الرضا</span>
+          <span
+            className={`text-sm font-bold tabular-nums ${
+              national.nationalSatisfaction >= 55
+                ? "text-emerald-400"
+                : national.nationalSatisfaction >= 40
+                  ? "text-amber-300"
+                  : "text-red-400"
+            }`}
+          >
+            {Math.round(national.nationalSatisfaction)}/100
+          </span>
+        </div>
+        <div
+          className="flex items-baseline gap-2"
+          title="الانتماء الوطني — معدّل وطني مرجّح بعدد سكان كل ولاية"
+        >
+          <span className="text-xs text-slate-500">🇹🇳 الانتماء</span>
+          <span
+            className={`text-sm font-bold tabular-nums ${
+              national.overallNationalBelonging >= 60
+                ? "text-emerald-400"
+                : national.overallNationalBelonging >= 40
+                  ? "text-amber-300"
+                  : "text-red-400"
+            }`}
+          >
+            {Math.round(national.overallNationalBelonging)}/100
+          </span>
+        </div>
         <div className="flex items-baseline gap-2">
           <span className="text-xs text-slate-500">الناتج الوطني</span>
           <span className="text-sm font-semibold tabular-nums text-slate-100">

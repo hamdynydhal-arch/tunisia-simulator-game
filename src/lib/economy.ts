@@ -248,6 +248,10 @@ export interface NationalMetrics {
   avgUnemployment: number;
   /** National aggregate population (persons). */
   totalPopulation: number;
+  /** Population-weighted citizen satisfaction (رضا المواطنين), 0–100. */
+  nationalSatisfaction: number;
+  /** Population-weighted national belonging (الانتماء الوطني), 0–100. */
+  overallNationalBelonging: number;
 }
 
 /**
@@ -264,6 +268,8 @@ export function computeNationalMetrics(
   let dev = 0;
   let sec = 0;
   let unemp = 0;
+  let sat = 0;
+  let belong = 0;
   let coastPop = 0;
   let coastDev = 0;
   let interiorPop = 0;
@@ -275,6 +281,8 @@ export function computeNationalMetrics(
     dev += region.developmentIndex * region.population;
     sec += region.securityLevel * region.population;
     unemp += region.unemploymentRate * region.population;
+    sat += region.stateSatisfaction * region.population;
+    belong += region.nationalBelonging * region.population;
     gdpAnnual += (monthlyRegionIncome(region) * 12) / ANNUAL_TAX_RATE;
     if (region.isCoastal) {
       coastPop += region.population;
@@ -303,6 +311,8 @@ export function computeNationalMetrics(
     coastInteriorGap,
     avgUnemployment,
     totalPopulation: pop,
+    nationalSatisfaction: sat / pop,
+    overallNationalBelonging: belong / pop,
   };
 }
 
