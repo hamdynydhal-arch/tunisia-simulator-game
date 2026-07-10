@@ -23,7 +23,7 @@ import type { Region, RegionId } from "@/types/game";
  */
 const REGION_LIST: readonly Omit<
   Region,
-  "stateSatisfaction" | "nationalBelonging"
+  "stateSatisfaction" | "nationalBelonging" | "isUnderRebelControl"
 >[] = [
   {
     id: "tunis",
@@ -348,7 +348,7 @@ const clampPct = (value: number) => Math.min(100, Math.max(0, Math.round(value))
  * lower — the initial gradient the Equation of Belonging then evolves.
  */
 function seedStateSatisfaction(
-  region: Omit<Region, "stateSatisfaction" | "nationalBelonging">,
+  region: Omit<Region, "stateSatisfaction" | "nationalBelonging" | "isUnderRebelControl">,
 ): number {
   const employment = 100 - region.unemploymentRate * 2.2;
   return clampPct(
@@ -357,7 +357,7 @@ function seedStateSatisfaction(
 }
 
 function seedNationalBelonging(
-  region: Omit<Region, "stateSatisfaction" | "nationalBelonging">,
+  region: Omit<Region, "stateSatisfaction" | "nationalBelonging" | "isUnderRebelControl">,
 ): number {
   // Belonging starts high across Tunisia (strong national identity) but is
   // thinner where the state has historically been least present.
@@ -373,6 +373,7 @@ export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
       ...region,
       stateSatisfaction: seedStateSatisfaction(region),
       nationalBelonging: seedNationalBelonging(region),
+      isUnderRebelControl: false,
     },
   ]),
 ) as Record<RegionId, Region>;

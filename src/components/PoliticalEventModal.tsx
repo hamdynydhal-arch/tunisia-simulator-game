@@ -12,6 +12,7 @@ export default function PoliticalEventModal() {
   const event = useGameStore((state) => state.gameState.politicalEvent ?? null);
   const acknowledge = useGameStore((state) => state.acknowledgePoliticalEvent);
   const resolveChoice = useGameStore((state) => state.resolvePoliticalChoice);
+  const resolveRebel = useGameStore((state) => state.resolveRebelTakeover);
   const regions = useGameStore((state) => state.regions);
   const budget = useGameStore((state) => state.gameState.totalBudget);
 
@@ -20,6 +21,8 @@ export default function PoliticalEventModal() {
   }
 
   const isBoom = event.severity === "boom";
+  const isRebel = event.interactive?.kind === "rebel-takeover";
+  const isInitiative = event.interactive?.kind === "citizen-initiative";
   const isInteractive = Boolean(event.interactive);
   const SUPPORT_COST = 60;
   const region = event.regionId ? regions[event.regionId] : null;
@@ -62,11 +65,13 @@ export default function PoliticalEventModal() {
               : "bg-red-500/15 text-red-300"
           }`}
         >
-          {isInteractive
-            ? "🤝 مبادرة مواطنية — قرار الدولة"
-            : isBoom
-              ? "🚀 ازدهار اقتصادي"
-              : "🔥 أزمة سياسية واجتماعية"}
+          {isRebel
+            ? "🏴 فقدان السيطرة — قرار سيادي"
+            : isInitiative
+              ? "🤝 مبادرة مواطنية — قرار الدولة"
+              : isBoom
+                ? "🚀 ازدهار اقتصادي"
+                : "🔥 أزمة سياسية واجتماعية"}
         </span>
         <h2 className="mt-4 text-2xl font-bold text-slate-50">{event.title}</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-300">
@@ -102,7 +107,32 @@ export default function PoliticalEventModal() {
           </div>
         )}
 
-        {isInteractive ? (
+        {isRebel ? (
+          <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => resolveRebel("crackdown")}
+              disabled={budget < 400}
+              title={budget < 400 ? "الميزانية غير كافية" : undefined}
+              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+            >
+              ⚔️ التدخل العسكري
+              <span className="mt-0.5 block text-[11px] font-normal text-red-100/80">
+                400م د.ت · يستعيد السيطرة لكن يدمّر التنمية
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => resolveRebel("amnesty")}
+              className="rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20"
+            >
+              🕊️ مفاوضات واحتواء
+              <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
+                80م د.ت · يوفّر التنمية لكن الدولة تبدو ضعيفة
+              </span>
+            </button>
+          </div>
+        ) : isInteractive ? (
           <div className="mt-6 grid gap-2 sm:grid-cols-2">
             <button
               type="button"

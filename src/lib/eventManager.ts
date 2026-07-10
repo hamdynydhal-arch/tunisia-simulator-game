@@ -177,6 +177,37 @@ export function evaluatePoliticalEvents(
       [region.id]: { ...region, ...patch },
     });
 
+    // A governorate already lost to rebels generates no further events until
+    // the State resolves it.
+    if (region.isUnderRebelControl) {
+      continue;
+    }
+
+    // ---- Rebel takeover (فقدان السيطرة): total belonging collapse (<10) in a
+    // vulnerable region. This supersedes every other event there and forces a
+    // sovereign decision. ----
+    if ((TERRAIN_VULNERABILITY[region.id] ?? 0) > 0 && region.nationalBelonging < 10) {
+      add("rebel-takeover", region, 100, () => ({
+        ...base,
+        event: {
+          id: `rebel-takeover-${region.id}`,
+          severity: "crisis",
+          regionId: region.id,
+          title: `فقدان السيطرة على ${region.name}`,
+          description: `انهار الانتماء الوطني في ${region.name} (${Math.round(region.nationalBelonging)}/100) وسيطر مسلحون على الجهة بالكامل. توقّفت الجباية والمشاريع، وباتت الولاية خارج سلطة الدولة. على الدولة أن تحسم موقفها.`,
+          effects: { budgetChange: 0 },
+          interactive: { kind: "rebel-takeover", regionId: region.id },
+        },
+        regions: withRegion({
+          isUnderRebelControl: true,
+          securityLevel: clamp(region.securityLevel - 20, 0, 100),
+        }),
+      }));
+      if (!onCooldown("rebel-takeover", region.id)) {
+        continue;
+      }
+    }
+
     // ---- Riots: unemployment past the boiling point. ----
     if (region.unemploymentRate > 25) {
       const weight =

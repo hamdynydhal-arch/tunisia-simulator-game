@@ -75,6 +75,10 @@ export function crisisColor(score: number): string {
  * development, so tax revenue keeps compounding on every later tick.
  */
 export function monthlyRegionIncome(region: Region): number {
+  // A rebel-held governorate is outside state control: it yields nothing.
+  if (region.isUnderRebelControl) {
+    return 0;
+  }
   const employedThousands =
     (region.population / 1_000) * (1 - region.unemploymentRate / 100);
   return (

@@ -61,7 +61,9 @@ export interface GameEvent {
    * Interactive events demand a player decision and pause the game loop
    * until resolved (see `resolvePoliticalChoice`).
    */
-  interactive?: { kind: "citizen-initiative"; regionId: RegionId };
+  interactive?:
+    | { kind: "citizen-initiative"; regionId: RegionId }
+    | { kind: "rebel-takeover"; regionId: RegionId };
 }
 
 /** Global state of the running simulation. */
@@ -146,6 +148,12 @@ export interface Region {
    * region, the state's absence invites either extremism or civic self-help.
    */
   nationalBelonging: number;
+  /**
+   * فقدان السيطرة — an armed rebel faction has seized the governorate. While
+   * true it yields no taxes/GDP and its construction is paused, until the
+   * State resolves it (military crackdown or diplomatic amnesty).
+   */
+  isUnderRebelControl: boolean;
 }
 
 /** Region-level consequences of a completed project. */

@@ -95,6 +95,13 @@ interface GameStore {
    */
   resolvePoliticalChoice: (choice: "praise" | "support") => void;
   /**
+   * Resolves a rebel takeover: military crackdown (heavy budget + severe
+   * development collateral) or diplomatic amnesty (spares development but
+   * severe national-stability hit via lost security + minor budget). Both
+   * restore state control.
+   */
+  resolveRebelTakeover: (choice: "crackdown" | "amnesty") => void;
+  /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
    */
@@ -187,6 +194,52 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      resolveRebelTakeover: (choice) =>
+        set((state) => {
+          const event = state.gameState.politicalEvent;
+          if (event?.interactive?.kind !== "rebel-takeover") {
+            return state;
+          }
+          const { regionId } = event.interactive;
+          const region = state.regions[regionId];
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+
+          // Crackdown: expensive, restores order but flattens development.
+          // Amnesty: cheap militarily but the state looks weak — national
+          // stability suffers (modelled as a lasting security/belonging hit).
+          const cost = choice === "crackdown" ? 400 : 80;
+          return {
+            gameState: {
+              ...state.gameState,
+              politicalEvent: null,
+              totalBudget: state.gameState.totalBudget - cost,
+            },
+            regions: {
+              ...state.regions,
+              [regionId]: {
+                ...region,
+                isUnderRebelControl: false,
+                developmentIndex:
+                  choice === "crackdown"
+                    ? clampPct(region.developmentIndex - 20)
+                    : region.developmentIndex,
+                securityLevel:
+                  choice === "crackdown"
+                    ? clampPct(region.securityLevel + 15)
+                    : clampPct(region.securityLevel - 15),
+                nationalBelonging:
+                  choice === "crackdown"
+                    ? clampPct(region.nationalBelonging + 12)
+                    : clampPct(region.nationalBelonging + 20),
+                stateSatisfaction:
+                  choice === "amnesty"
+                    ? clampPct(region.stateSatisfaction - 10)
+                    : region.stateSatisfaction,
+              },
+            },
+          };
+        }),
+
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
         if (!template) {
@@ -258,11 +311,13 @@ export const useGameStore = create<GameStore>()(
           // the National Tech Level, which gates the advanced tech tree.
           const techGain = monthlyTechPoints(state.completedProjects);
 
-          // Construction progress and completions.
-          const ticked = state.activeProjects.map((project) => ({
-            ...project,
-            monthsRemaining: project.monthsRemaining - 1,
-          }));
+          // Construction progress and completions. Projects in a rebel-held
+          // governorate are frozen — their timer does not advance.
+          const ticked = state.activeProjects.map((project) =>
+            state.regions[project.regionId].isUnderRebelControl
+              ? project
+              : { ...project, monthsRemaining: project.monthsRemaining - 1 },
+          );
           const completed = ticked.filter(
             (project) => project.monthsRemaining <= 0,
           );
@@ -447,7 +502,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: "tunisia-simulator-campaign",
       storage: createJSONStorage(() => localStorage),
-      version: 12,
+      version: 13,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;
@@ -552,6 +607,12 @@ export const useGameStore = create<GameStore>()(
             const seed = INITIAL_REGIONS[region.id];
             region.stateSatisfaction ??= seed.stateSatisfaction;
             region.nationalBelonging ??= seed.nationalBelonging;
+          }
+        }
+        // v12 → v13: rebel-takeover state. No governorate starts rebel-held.
+        if (version < 13) {
+          for (const region of Object.values(state.regions)) {
+            region.isUnderRebelControl ??= false;
           }
         }
         return persisted;

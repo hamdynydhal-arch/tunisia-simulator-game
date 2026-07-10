@@ -63,6 +63,16 @@ function styleForRegion(
   isSelected: boolean,
   isHovered: boolean,
 ): PathOptions {
+  // A rebel-held governorate is charcoal/blackish-red — sovereignty lost.
+  if (region.isUnderRebelControl) {
+    return {
+      color: isSelected ? "#34d399" : isHovered ? "#fbbf24" : "#7f1d1d",
+      weight: isSelected ? 3 : isHovered ? 2.5 : 1.5,
+      opacity: 1,
+      fillColor: "#1a0505",
+      fillOpacity: 0.7,
+    };
+  }
   const fillColor = crisisColor(crisisScore(region));
   if (isSelected) {
     return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.42 };
@@ -316,6 +326,7 @@ const EVENT_MARKER: Record<
   smuggling: { glyph: "\u{1F4E6}", kind: "crisis", label: "تهريب" },
   harga: { glyph: "\u{26F5}", kind: "crisis", label: "هجرة بحرية غير نظامية" },
   terrorism: { glyph: "\u{1F4A5}", kind: "crisis", label: "إرهاب وتمرد مسلح" },
+  "rebel-takeover": { glyph: "\u{1F3F4}", kind: "crisis", label: "فقدان السيطرة" },
   "citizen-initiative": {
     glyph: "\u{1F91D}",
     kind: "boom",
