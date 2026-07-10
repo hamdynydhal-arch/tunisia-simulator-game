@@ -128,6 +128,23 @@ export interface GameState {
    * inflation is severe; `overrideBCT` permanently sets this false.
    */
   bctIndependence: boolean;
+  /**
+   * سيطرة الكارتيلات — rentier oligarchy grip on the economy, 0–100. Above
+   * 50, absent an active anti-monopoly campaign, it quietly bleeds the
+   * budget every month.
+   */
+  oligarchyControl: number;
+  /**
+   * Whether a state anti-monopoly campaign is underway. Trades a purchasing-
+   * power retaliation for steady progress against `oligarchyControl`.
+   */
+  antiMonopolyActive: boolean;
+  /**
+   * الاصطفاف الجيوسياسي — foreign-policy lean, -100 (East/BRICS) to 100
+   * (West/IMF), 0 neutral. Shifted by which bloc's loans the state accepts;
+   * a deep Eastern lean adds friction to buying USD at the Central Bank.
+   */
+  geopoliticalAlignment: number;
 }
 
 /** How a campaign can end. */

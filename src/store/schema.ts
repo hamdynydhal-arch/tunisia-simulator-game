@@ -66,6 +66,9 @@ const gameStateSchema = z.object({
   isGameOver: z.boolean(),
   purchasingPowerIndex: num,
   bctIndependence: z.boolean(),
+  oligarchyControl: num,
+  antiMonopolyActive: z.boolean(),
+  geopoliticalAlignment: num,
 });
 
 export const persistedStateSchema = z.object({

@@ -67,6 +67,9 @@ const INITIAL_GAME_STATE: GameState = {
   isGameOver: false,
   purchasingPowerIndex: 100,
   bctIndependence: true,
+  oligarchyControl: 80,
+  antiMonopolyActive: false,
+  geopoliticalAlignment: 50,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -121,6 +124,28 @@ const OVERRIDE_STABILITY_HIT_PER_FIELD = 15 / 0.6;
 const INFLATION_BLEED_THRESHOLD = 80;
 /** stateSatisfaction lost per 10 points purchasingPowerIndex sits under 80. */
 const INFLATION_BLEED_PER_10_POINTS = 2;
+
+/** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
+const OLIGARCHY_CONTROL_THRESHOLD = 50;
+/** Monthly corruption/monopoly drain on the budget, million TND. */
+const OLIGARCHY_CORRUPTION_DRAIN_TND = 50;
+/** Monthly oligarchyControl progress while the campaign is active. */
+const ANTI_MONOPOLY_CONTROL_PROGRESS = 5;
+/** Monthly purchasing-power retaliation from cartels while the campaign is active. */
+const ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION = 10;
+
+/** IMF/Western emergency loan: minimum alignment required to qualify. */
+const EMERGENCY_LOAN_MIN_ALIGNMENT = 0;
+/** IMF/Western loan pulls alignment toward the West. */
+const EMERGENCY_LOAN_ALIGNMENT_SHIFT = 20;
+/** BRICS/Eastern loan pulls alignment toward the East. */
+const EASTERN_LOAN_ALIGNMENT_SHIFT = 40;
+/** Capital flight cost of an Eastern loan (Western retaliation), million USD. */
+const EASTERN_LOAN_CAPITAL_FLIGHT_USD = 20;
+/** Below this alignment, Western financial friction raises the USD price. */
+const WESTERN_FRICTION_ALIGNMENT_THRESHOLD = -50;
+/** TND per USD once Western friction applies (vs. the normal USD_TND_RATE). */
+const WESTERN_FRICTION_RATE = 4;
 
 /** Regime collapse: stability below this is the point of no return. */
 const COLLAPSE_STABILITY = 15;
@@ -198,12 +223,21 @@ interface GameStore {
    */
   toggleCrackdown: (regionId: RegionId) => void;
   /**
-   * Draws a 500M TND emergency loan: an immediate, unconditional cash
-   * injection matched by an equal rise in sovereign debt, paid for with a
-   * severe, immediate austerity hit to every region's belonging, development
-   * and security (see the LOAN_* constants for the exact math).
+   * Draws a 500M TND IMF/Western emergency loan: an immediate cash injection
+   * matched by an equal rise in sovereign debt, paid for with a severe,
+   * immediate austerity hit to every region's belonging, development and
+   * security (see the LOAN_* constants for the exact math), and shifts
+   * geopolitical alignment +20 toward the West. Fails — no-op, returns
+   * false — if alignment has already tipped negative (East-leaning).
    */
-  takeEmergencyLoan: () => void;
+  takeEmergencyLoan: () => boolean;
+  /**
+   * Draws a 500M TND BRICS/Eastern loan: the same cash injection and debt
+   * rise as the Western loan, but with NO austerity — instead it shifts
+   * alignment -40 toward the East and triggers -20M USD of Western capital
+   * flight from reserves. Always available.
+   */
+  takeEasternBlocLoan: () => void;
   /**
    * Negotiates an end to a region's general strike: costs 50M TND, clears
    * `isStriking`, and restores 15 points of local satisfaction (clamped 100).
@@ -225,10 +259,12 @@ interface GameStore {
    */
   exchangeUsdToTnd: (usdAmount: number) => boolean;
   /**
-   * Buys back `tndAmount` worth of USD reserves at the same 1:3 rate
-   * (TND→USD), restoring purchasing power proportionally (+2 per 150M TND
-   * spent, clamped 100). Fails — no-op, returns false — if the budget can't
-   * cover it.
+   * Buys back `tndAmount` worth of USD reserves (TND→USD), restoring
+   * purchasing power proportionally to the USD actually gained (+2 per 50M
+   * USD, clamped 100). The rate is the normal 1:3 unless geopolitical
+   * alignment has fallen below -50 (Western financial friction), in which
+   * case it costs 4 TND per USD instead. Fails — no-op, returns false — if
+   * the budget can't cover it.
    */
   exchangeTndToUsd: (tndAmount: number) => boolean;
   /**
@@ -239,6 +275,13 @@ interface GameStore {
    * austerity math). No-op if the Bank is already overridden.
    */
   overrideBCT: () => void;
+  /**
+   * Toggles the state's anti-monopoly campaign against the rentier
+   * oligarchy: while off and `oligarchyControl > 50`, corruption bleeds the
+   * budget every month; while on, cartels retaliate against purchasing
+   * power but oligarchyControl steadily falls (see `advanceTime`).
+   */
+  toggleAntiMonopolyCampaign: () => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -509,9 +552,13 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
-      takeEmergencyLoan: () =>
+      takeEmergencyLoan: () => {
+        if (get().gameState.geopoliticalAlignment < EMERGENCY_LOAN_MIN_ALIGNMENT) {
+          return false;
+        }
         set((state) => {
           const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          const clampAlign = (v: number) => Math.min(100, Math.max(-100, v));
           const regions = { ...state.regions };
           for (const region of Object.values(state.regions)) {
             regions[region.id] = {
@@ -532,8 +579,32 @@ export const useGameStore = create<GameStore>()(
               ...state.gameState,
               totalBudget: state.gameState.totalBudget + LOAN_AMOUNT_TND,
               sovereignDebt: state.gameState.sovereignDebt + LOAN_AMOUNT_TND,
+              geopoliticalAlignment: clampAlign(
+                state.gameState.geopoliticalAlignment +
+                  EMERGENCY_LOAN_ALIGNMENT_SHIFT,
+              ),
             },
             regions,
+          };
+        });
+        return true;
+      },
+
+      takeEasternBlocLoan: () =>
+        set((state) => {
+          const clampAlign = (v: number) => Math.min(100, Math.max(-100, v));
+          return {
+            gameState: {
+              ...state.gameState,
+              totalBudget: state.gameState.totalBudget + LOAN_AMOUNT_TND,
+              sovereignDebt: state.gameState.sovereignDebt + LOAN_AMOUNT_TND,
+              geopoliticalAlignment: clampAlign(
+                state.gameState.geopoliticalAlignment -
+                  EASTERN_LOAN_ALIGNMENT_SHIFT,
+              ),
+              hardCurrency:
+                state.gameState.hardCurrency - EASTERN_LOAN_CAPITAL_FLIGHT_USD,
+            },
           };
         }),
 
@@ -615,13 +686,19 @@ export const useGameStore = create<GameStore>()(
         if (gameState.totalBudget < tndAmount) {
           return false;
         }
-        const boost =
-          (tndAmount / (EXCHANGE_CHUNK_USD * USD_TND_RATE)) * DEFLATION_BOOST;
+        // Western financial friction: a deep Eastern lean makes USD costlier
+        // to buy back (4 TND/USD instead of the normal 3).
+        const effectiveRate =
+          gameState.geopoliticalAlignment < WESTERN_FRICTION_ALIGNMENT_THRESHOLD
+            ? WESTERN_FRICTION_RATE
+            : USD_TND_RATE;
+        const usdGained = tndAmount / effectiveRate;
+        const boost = (usdGained / EXCHANGE_CHUNK_USD) * DEFLATION_BOOST;
         set((state) => ({
           gameState: {
             ...state.gameState,
             totalBudget: state.gameState.totalBudget - tndAmount,
-            hardCurrency: state.gameState.hardCurrency + tndAmount / USD_TND_RATE,
+            hardCurrency: state.gameState.hardCurrency + usdGained,
             purchasingPowerIndex: Math.min(
               100,
               Math.max(0, state.gameState.purchasingPowerIndex + boost),
@@ -660,6 +737,14 @@ export const useGameStore = create<GameStore>()(
             regions,
           };
         }),
+
+      toggleAntiMonopolyCampaign: () =>
+        set((state) => ({
+          gameState: {
+            ...state.gameState,
+            antiMonopolyActive: !state.gameState.antiMonopolyActive,
+          },
+        })),
 
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
@@ -931,13 +1016,38 @@ export const useGameStore = create<GameStore>()(
             eventBudgetChange = currentEvent.effects.budgetChange;
           }
 
+          // Rentier Oligarchy: entrenched cartel control quietly bleeds the
+          // budget every month unless the state is actively fighting it; the
+          // fight itself invites retaliation against purchasing power while
+          // steadily grinding oligarchyControl down.
+          let oligarchyBudgetDelta = 0;
+          let nextOligarchyControl = state.gameState.oligarchyControl;
+          let nextPurchasingPowerIndex = state.gameState.purchasingPowerIndex;
+          if (
+            state.gameState.oligarchyControl > OLIGARCHY_CONTROL_THRESHOLD &&
+            !state.gameState.antiMonopolyActive
+          ) {
+            oligarchyBudgetDelta = -OLIGARCHY_CORRUPTION_DRAIN_TND;
+          }
+          if (state.gameState.antiMonopolyActive) {
+            nextOligarchyControl = Math.max(
+              0,
+              nextOligarchyControl - ANTI_MONOPOLY_CONTROL_PROGRESS,
+            );
+            nextPurchasingPowerIndex = Math.max(
+              0,
+              nextPurchasingPowerIndex - ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION,
+            );
+          }
+
           // National snapshot, win/loss evaluation, and history.
           const nextDate = addOneMonth(state.gameState.currentDate);
           const nextBudget =
             state.gameState.totalBudget +
             net +
             eventBudgetChange +
-            political.budgetDelta;
+            political.budgetDelta +
+            oligarchyBudgetDelta;
           // Exports renew reserves; advanced-project USD upkeep drains them.
           // Harka exits add their own diplomatic-friction drain on top.
           const nextHardCurrency =
@@ -1017,6 +1127,8 @@ export const useGameStore = create<GameStore>()(
                 : state.gameState.boomedRegions,
               criticalStabilityMonths,
               isGameOver,
+              oligarchyControl: nextOligarchyControl,
+              purchasingPowerIndex: nextPurchasingPowerIndex,
             },
             activeProjects: ticked.filter(
               (project) => project.monthsRemaining > 0,
@@ -1052,7 +1164,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 20,
+      version: 21,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1224,6 +1336,14 @@ export const useGameStore = create<GameStore>()(
         if (version < 20) {
           state.gameState.purchasingPowerIndex ??= 100;
           state.gameState.bctIndependence ??= true;
+        }
+        // v20 → v21: the Rentier Oligarchy & Geopolitical Alignment. Cartels
+        // start entrenched (80), no campaign running, alignment neutral-lean-
+        // West (50, matching the campaign's initial IMF-friendly posture).
+        if (version < 21) {
+          state.gameState.oligarchyControl ??= 80;
+          state.gameState.antiMonopolyActive ??= false;
+          state.gameState.geopoliticalAlignment ??= 50;
         }
         return persisted;
       },
