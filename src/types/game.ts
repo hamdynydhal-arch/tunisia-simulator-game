@@ -135,6 +135,8 @@ export interface Region {
   infrastructureLevel: number;
   /** Whether the governorate has a Mediterranean coastline. */
   isCoastal: boolean;
+  /** Whether the governorate sits on the Algerian/Libyan land border. */
+  isBorder: boolean;
   /** Registered unemployment as a percentage of the active population. */
   unemploymentRate: number;
   /** Composite socio-economic development index, 0 (lowest) to 100. */
@@ -192,6 +194,18 @@ export interface Region {
    * −8/month) — a dilemma between fiscal and social stability.
    */
   crackdownActive: boolean;
+  /**
+   * الحرقة — this coastal governorate lost people to maritime exit this
+   * month (struggling development or satisfaction). Recomputed every tick;
+   * clears automatically the month the underlying conditions ease.
+   */
+  activeHarka: boolean;
+  /**
+   * اختراق حدودي — this border governorate absorbed an undocumented
+   * population influx this month (entrenched, un-cracked-down shadow
+   * economy). Recomputed every tick.
+   */
+  activeInfiltration: boolean;
 }
 
 /** Region-level consequences of a completed project. */

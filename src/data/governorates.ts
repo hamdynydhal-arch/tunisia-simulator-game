@@ -30,6 +30,9 @@ const REGION_LIST: readonly Omit<
   | "siegeTurns"
   | "shadowEconomyLevel"
   | "crackdownActive"
+  | "isBorder"
+  | "activeHarka"
+  | "activeInfiltration"
 >[] = [
   {
     id: "tunis",
@@ -345,6 +348,23 @@ const REGION_LIST: readonly Omit<
   },
 ];
 
+/**
+ * Governorates on the Algerian/Libyan land border — the historical
+ * infiltration and smuggling corridors. Canonical list: exported so
+ * `eventManager.ts` shares it instead of keeping a second copy that could
+ * drift out of sync.
+ */
+export const BORDER_REGION_IDS: readonly RegionId[] = [
+  "jendouba",
+  "el-kef",
+  "kasserine",
+  "gafsa",
+  "tozeur",
+  "kebili",
+  "tataouine",
+  "medenine",
+];
+
 const clampPct = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
 
 /**
@@ -362,6 +382,9 @@ type RegionSeed = Omit<
   | "siegeTurns"
   | "shadowEconomyLevel"
   | "crackdownActive"
+  | "isBorder"
+  | "activeHarka"
+  | "activeInfiltration"
 >;
 
 function seedStateSatisfaction(region: RegionSeed): number {
@@ -413,6 +436,9 @@ export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
       siegeTurns: 0,
       shadowEconomyLevel: seedShadowEconomyLevel(region),
       crackdownActive: false,
+      isBorder: BORDER_REGION_IDS.includes(region.id),
+      activeHarka: false,
+      activeInfiltration: false,
     },
   ]),
 ) as Record<RegionId, Region>;

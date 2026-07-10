@@ -270,6 +270,21 @@ export default function RegionSidebar() {
         </section>
       )}
 
+      {(region.activeHarka || region.activeInfiltration) && (
+        <div className="mt-4 space-y-2">
+          {region.activeHarka && (
+            <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+              🚨 أزمة هجرة بحرية (الحرقة): نزيف ديموغرافي وعقوبات مالية
+            </p>
+          )}
+          {region.activeInfiltration && (
+            <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+              🚨 اختراق حدودي بري: احتقان اجتماعي بسبب التدفق غير النظامي
+            </p>
+          )}
+        </div>
+      )}
+
       <section className="mt-8">
         <h3 className="text-sm font-semibold text-slate-300">المشاريع المتاحة</h3>
         {atCapacity && (

@@ -5,19 +5,8 @@ import type {
   RegionId,
 } from "@/types/game";
 import { getProjectTemplate } from "@/data/projects";
+import { BORDER_REGION_IDS as BORDER_REGIONS } from "@/data/governorates";
 import { computeNationalMetrics } from "@/lib/economy";
-
-/** Governorates on the Algerian/Libyan land borders. */
-export const BORDER_REGIONS: readonly RegionId[] = [
-  "jendouba",
-  "el-kef",
-  "kasserine",
-  "gafsa",
-  "tozeur",
-  "kebili",
-  "tataouine",
-  "medenine",
-];
 
 /** Coastal governorates that draw seasonal tourism. */
 const TOURISM_REGIONS: readonly RegionId[] = [

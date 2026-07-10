@@ -29,7 +29,7 @@ import {
   evaluatePoliticalEvents,
 } from "@/lib/eventManager";
 import { applyDemographics } from "@/lib/demographics";
-import { applyDevelopmentMigration } from "@/lib/migration";
+import { applyDevelopmentMigration, applyHarkaAndInfiltration } from "@/lib/migration";
 import {
   concessionsChance,
   mediationChance,
@@ -641,6 +641,13 @@ export const useGameStore = create<GameStore>()(
           // exchange.
           regions = applyDevelopmentMigration(regions);
 
+          // Harka (maritime exit) & border infiltration: two more RNG-free
+          // consequences layered on the same migration engine, running after
+          // internal migration so both read this month's true post-migration
+          // figures.
+          const harkaResult = applyHarkaAndInfiltration(regions);
+          regions = harkaResult.regions;
+
           // Socio-political engine: weighted, seasonal, per-region cooldowns.
           const elapsingMonth = Number(
             state.gameState.currentDate.slice(5, 7),
@@ -687,10 +694,12 @@ export const useGameStore = create<GameStore>()(
             eventBudgetChange +
             political.budgetDelta;
           // Exports renew reserves; advanced-project USD upkeep drains them.
+          // Harka exits add their own diplomatic-friction drain on top.
           const nextHardCurrency =
             state.gameState.hardCurrency +
             hardCurrencyNet +
-            political.hardCurrencyDelta;
+            political.hardCurrencyDelta +
+            harkaResult.hardCurrencyDelta;
           const nextTechLevel = state.gameState.techLevel + techGain;
           const metrics = computeNationalMetrics(regions);
 
@@ -786,7 +795,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 17,
+      version: 18,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -932,6 +941,17 @@ export const useGameStore = create<GameStore>()(
         // v16 → v17: sovereign debt. No loan has been drawn yet.
         if (version < 17) {
           state.gameState.sovereignDebt ??= 0;
+        }
+        // v17 → v18: Harka & border infiltration. Backfill each region's
+        // static isBorder geography flag and start both monthly status flags
+        // clear.
+        if (version < 18) {
+          for (const region of Object.values(state.regions)) {
+            const seed = INITIAL_REGIONS[region.id];
+            region.isBorder ??= seed.isBorder;
+            region.activeHarka ??= false;
+            region.activeInfiltration ??= false;
+          }
         }
         return persisted;
       },

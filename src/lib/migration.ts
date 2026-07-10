@@ -74,3 +74,98 @@ export function applyDevelopmentMigration(
   };
   return next;
 }
+
+/** Below this development, or below this satisfaction, a coastal governorate
+ *  bleeds people to the sea. */
+const HARKA_DEVELOPMENT_THRESHOLD = 35;
+const HARKA_SATISFACTION_THRESHOLD = 30;
+/** Share of a Harka-eligible governorate's population lost each month. */
+const HARKA_POPULATION_RATE = 0.005;
+/** EU diplomatic friction / brain-drain cost per affected governorate, M USD. */
+const HARKA_HARD_CURRENCY_COST = 2;
+
+/** Above this shadow-economy level, and absent a crackdown, a border
+ *  governorate absorbs an undocumented population influx. */
+const INFILTRATION_SHADOW_THRESHOLD = 50;
+/** Share of population gained by an infiltration-eligible governorate. */
+const INFILTRATION_POPULATION_RATE = 0.005;
+const INFILTRATION_SATISFACTION_PENALTY = 3;
+
+export interface HarkaInfiltrationResult {
+  regions: Record<RegionId, Region>;
+  /** Applied to `GameState.hardCurrency`; ≤ 0, million USD. */
+  hardCurrencyDelta: number;
+}
+
+/**
+ * Two deterministic, RNG-free monthly consequences layered on the internal
+ * migration engine:
+ *
+ * - الحرقة (Harka, maritime exit): a struggling COASTAL governorate — low
+ *   development or low satisfaction — bleeds 0.5% of its population to
+ *   Europe every month, and the exodus costs the state hard currency (EU
+ *   diplomatic friction, brain drain).
+ * - اختراق حدودي (border infiltration): a BORDER governorate whose shadow
+ *   economy has taken over, and that the State isn't actively cracking down
+ *   on, absorbs an undocumented 0.5% population influx that strains local
+ *   satisfaction.
+ *
+ * A region can be both (e.g. Médenine, coastal and a border governorate at
+ * once). `activeHarka`/`activeInfiltration` are recomputed fresh every call,
+ * so a region that resolves its conditions clears its flag the same month.
+ */
+export function applyHarkaAndInfiltration(
+  regions: Record<RegionId, Region>,
+): HarkaInfiltrationResult {
+  let next: Record<RegionId, Region> | null = null;
+  let hardCurrencyDelta = 0;
+
+  for (const region of Object.values(regions)) {
+    const harka =
+      region.isCoastal &&
+      (region.developmentIndex < HARKA_DEVELOPMENT_THRESHOLD ||
+        region.stateSatisfaction < HARKA_SATISFACTION_THRESHOLD);
+    const infiltration =
+      region.isBorder &&
+      region.shadowEconomyLevel > INFILTRATION_SHADOW_THRESHOLD &&
+      !region.crackdownActive;
+
+    if (!harka && !infiltration) {
+      if (region.activeHarka || region.activeInfiltration) {
+        next ??= { ...regions };
+        next[region.id] = {
+          ...region,
+          activeHarka: false,
+          activeInfiltration: false,
+        };
+      }
+      continue;
+    }
+
+    next ??= { ...regions };
+    let updated = region;
+    if (harka) {
+      const lost = Math.floor(region.population * HARKA_POPULATION_RATE);
+      updated = {
+        ...updated,
+        population: Math.max(0, updated.population - lost),
+      };
+      hardCurrencyDelta -= HARKA_HARD_CURRENCY_COST;
+    }
+    if (infiltration) {
+      const gained = Math.floor(region.population * INFILTRATION_POPULATION_RATE);
+      updated = {
+        ...updated,
+        population: updated.population + gained,
+        stateSatisfaction: clamp(
+          updated.stateSatisfaction - INFILTRATION_SATISFACTION_PENALTY,
+          0,
+          100,
+        ),
+      };
+    }
+    next[region.id] = { ...updated, activeHarka: harka, activeInfiltration: infiltration };
+  }
+
+  return { regions: next ?? regions, hardCurrencyDelta };
+}

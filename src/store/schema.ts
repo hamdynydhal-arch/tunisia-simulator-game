@@ -16,6 +16,7 @@ const regionSchema = z.object({
   population: num,
   infrastructureLevel: num,
   isCoastal: z.boolean(),
+  isBorder: z.boolean(),
   unemploymentRate: num,
   developmentIndex: num,
   educationRate: num,
@@ -29,6 +30,8 @@ const regionSchema = z.object({
   siegeTurns: num,
   shadowEconomyLevel: num,
   crackdownActive: z.boolean(),
+  activeHarka: z.boolean(),
+  activeInfiltration: z.boolean(),
 });
 
 const activeProjectSchema = z.object({
