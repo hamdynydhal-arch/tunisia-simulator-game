@@ -1,5 +1,5 @@
 1:"$Sreact.fragment"
-2:I[39756,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/2l-a0qz7lwoex.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
-3:I[37457,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/2l-a0qz7lwoex.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
+2:I[39756,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/0nc0ux52_w5xi.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
+3:I[37457,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/0nc0ux52_w5xi.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"4JGDlVaMgOJ-HpuEmO_rw"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"yHHGDxaJ9pUTyTm6vWEI1"}
