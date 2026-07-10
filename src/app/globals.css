@@ -157,10 +157,29 @@ body {
   100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0); }
 }
 
+/* Rebel-held governorate: a dark, prominent beacon that pulses at the region's
+   centroid — the black circle swells and fades as the ring widens. */
+.rebel-marker {
+  animation: rebel-pulse 1.5s ease-in-out infinite;
+}
+@keyframes rebel-pulse {
+  0%, 100% {
+    fill-opacity: 0.9;
+    stroke-opacity: 1;
+    stroke-width: 3;
+  }
+  50% {
+    fill-opacity: 0.4;
+    stroke-opacity: 0.35;
+    stroke-width: 7;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .construction-marker .cm-wrap,
   .event-marker--crisis,
-  .event-marker--boom {
+  .event-marker--boom,
+  .rebel-marker {
     animation: none;
   }
 }

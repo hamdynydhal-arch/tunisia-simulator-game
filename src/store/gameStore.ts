@@ -29,6 +29,24 @@ import {
   evaluatePoliticalEvents,
 } from "@/lib/eventManager";
 import { applyDemographics } from "@/lib/demographics";
+import {
+  concessionsChance,
+  mediationChance,
+  rollSuccess,
+  scorchedSatDrop,
+  scorchedUsdLoss,
+  siegeTurnsFor,
+  surgicalChance,
+} from "@/lib/rebelCrisis";
+
+/** The five committing moves of the two-stage rebel crisis (Martial Law is a
+ *  UI-only stage switch and never reaches the store). */
+export type RebelAction =
+  | "concessions"
+  | "mediation"
+  | "surgical"
+  | "scorched"
+  | "siege";
 
 const INITIAL_GAME_STATE: GameState = {
   currentDate: "2026-01-01",
@@ -97,12 +115,14 @@ interface GameStore {
    */
   resolvePoliticalChoice: (choice: "praise" | "support") => void;
   /**
-   * Resolves a rebel takeover: military crackdown (heavy budget + severe
-   * development collateral) or diplomatic amnesty (spares development but
-   * severe national-stability hit via lost security + minor budget). Both
-   * restore state control.
+   * Resolves a rebel takeover through the two-stage crisis engine. Stage 1
+   * (diplomacy: `concessions` | `mediation`) is probabilistic — success
+   * restores control, failure exhausts the diplomatic track and forces the
+   * War Room. Stage 2 (`surgical` | `scorched` | `siege`) is the military
+   * response, each with its own odds, collateral and timeline. Outcomes are
+   * rolled with the exact odds the modal displayed to the player.
    */
-  resolveRebelTakeover: (choice: "crackdown" | "amnesty") => void;
+  resolveRebelAction: (action: RebelAction) => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -196,7 +216,7 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
-      resolveRebelTakeover: (choice) =>
+      resolveRebelAction: (action) =>
         set((state) => {
           const event = state.gameState.politicalEvent;
           if (event?.interactive?.kind !== "rebel-takeover") {
@@ -204,42 +224,131 @@ export const useGameStore = create<GameStore>()(
           }
           const { regionId } = event.interactive;
           const region = state.regions[regionId];
+          const gs = state.gameState;
           const clampPct = (v: number) => Math.min(100, Math.max(0, v));
 
-          // Crackdown: expensive, restores order but flattens development.
-          // Amnesty: cheap militarily but the state looks weak — national
-          // stability suffers (modelled as a lasting security/belonging hit).
-          const cost = choice === "crackdown" ? 400 : 80;
-          return {
-            gameState: {
-              ...state.gameState,
-              politicalEvent: null,
-              totalBudget: state.gameState.totalBudget - cost,
-            },
-            regions: {
-              ...state.regions,
-              [regionId]: {
-                ...region,
-                isUnderRebelControl: false,
-                developmentIndex:
-                  choice === "crackdown"
-                    ? clampPct(region.developmentIndex - 20)
-                    : region.developmentIndex,
-                securityLevel:
-                  choice === "crackdown"
-                    ? clampPct(region.securityLevel + 15)
-                    : clampPct(region.securityLevel - 15),
-                nationalBelonging:
-                  choice === "crackdown"
-                    ? clampPct(region.nationalBelonging + 12)
-                    : clampPct(region.nationalBelonging + 20),
-                stateSatisfaction:
-                  choice === "amnesty"
-                    ? clampPct(region.stateSatisfaction - 10)
-                    : region.stateSatisfaction,
-              },
-            },
-          };
+          // Retaking the region clears every crisis flag, so a FUTURE takeover
+          // of the same governorate opens fresh at Stage 1.
+          const restored = (patch: Partial<Region>): Region => ({
+            ...region,
+            ...patch,
+            isUnderRebelControl: false,
+            diplomacyExhausted: false,
+            siegeTurns: 0,
+          });
+          const withRegion = (next: Region) => ({
+            ...state.regions,
+            [regionId]: next,
+          });
+
+          switch (action) {
+            // ---- STAGE 1: DIPLOMACY ----
+            case "concessions": {
+              // Odds ride the national mood. Win or lose, the concessions cost
+              // 100M TND and bruise the region's security by 20; success buys
+              // the region back, failure burns the diplomatic track.
+              const chance = concessionsChance(
+                computeNationalMetrics(state.regions).stability,
+              );
+              const win = rollSuccess(chance);
+              const security = clampPct(region.securityLevel - 20);
+              return {
+                gameState: {
+                  ...gs,
+                  politicalEvent: win ? null : gs.politicalEvent,
+                  totalBudget: gs.totalBudget - 100,
+                },
+                regions: withRegion(
+                  win
+                    ? restored({ securityLevel: security })
+                    : { ...region, securityLevel: security, diplomacyExhausted: true },
+                ),
+              };
+            }
+            case "mediation": {
+              // Cheap local brokering. On failure the mediators are humiliated
+              // (−10 development) and diplomacy is spent.
+              const chance = mediationChance(region.developmentIndex);
+              const win = rollSuccess(chance);
+              return {
+                gameState: {
+                  ...gs,
+                  politicalEvent: win ? null : gs.politicalEvent,
+                  totalBudget: gs.totalBudget - 20,
+                },
+                regions: withRegion(
+                  win
+                    ? restored({})
+                    : {
+                        ...region,
+                        developmentIndex: clampPct(region.developmentIndex - 10),
+                        diplomacyExhausted: true,
+                      },
+                ),
+              };
+            }
+
+            // ---- STAGE 2: WAR ROOM ----
+            case "surgical": {
+              // Precision at a premium (300M). Clean when it lands; on a miss
+              // the region stays lost and the botched raid costs 15 security.
+              const chance = surgicalChance(region.developmentIndex);
+              const win = rollSuccess(chance);
+              return {
+                gameState: {
+                  ...gs,
+                  politicalEvent: win ? null : gs.politicalEvent,
+                  totalBudget: gs.totalBudget - 300,
+                },
+                regions: withRegion(
+                  win
+                    ? restored({})
+                    : { ...region, securityLevel: clampPct(region.securityLevel - 15) },
+                ),
+              };
+            }
+            case "scorched": {
+              // Guaranteed but brutal: the region is retaken at the cost of its
+              // development, its people's trust, and hard currency scaled to
+              // the population caught in it.
+              const usdLoss = scorchedUsdLoss(region.population);
+              const satDrop = scorchedSatDrop(region.population);
+              return {
+                gameState: {
+                  ...gs,
+                  politicalEvent: null,
+                  totalBudget: gs.totalBudget - 100,
+                  hardCurrency: gs.hardCurrency - usdLoss,
+                },
+                regions: withRegion(
+                  restored({
+                    developmentIndex: clampPct(region.developmentIndex - 40),
+                    stateSatisfaction: clampPct(region.stateSatisfaction - satDrop),
+                  }),
+                ),
+              };
+            }
+            case "siege": {
+              // Starve them out. Cheap up front (30M, −10 security) but the
+              // governorate stays rebel-held and bleeds for `turns` months
+              // before the State walks back in (see advanceTime).
+              const turns = siegeTurnsFor(region.nationalBelonging);
+              return {
+                gameState: {
+                  ...gs,
+                  politicalEvent: null,
+                  totalBudget: gs.totalBudget - 30,
+                },
+                regions: withRegion({
+                  ...region,
+                  securityLevel: clampPct(region.securityLevel - 10),
+                  siegeTurns: turns,
+                }),
+              };
+            }
+            default:
+              return state;
+          }
         }),
 
       startProject: (projectId, regionId) => {
@@ -360,6 +469,31 @@ export const useGameStore = create<GameStore>()(
 
           // Demographics: natural growth + internal migration / brain drain.
           regions = applyDemographics(regions);
+
+          // Siege & Attrition: tick down any active siege. A besieged
+          // governorate stays rebel-held (0 GDP) and bleeds −5 satisfaction
+          // each month; when the counter hits zero the State retakes it and
+          // every crisis flag clears.
+          {
+            let besieged: Record<RegionId, Region> | null = null;
+            for (const region of Object.values(regions)) {
+              if (region.siegeTurns > 0) {
+                besieged ??= { ...regions };
+                const siegeTurns = region.siegeTurns - 1;
+                const ongoing = siegeTurns > 0;
+                besieged[region.id] = {
+                  ...region,
+                  siegeTurns,
+                  stateSatisfaction: Math.max(0, region.stateSatisfaction - 5),
+                  isUnderRebelControl: ongoing,
+                  diplomacyExhausted: ongoing ? region.diplomacyExhausted : false,
+                };
+              }
+            }
+            if (besieged) {
+              regions = besieged;
+            }
+          }
 
           // Socio-political engine: weighted, seasonal, per-region cooldowns.
           const elapsingMonth = Number(
@@ -506,7 +640,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 13,
+      version: 14,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -624,6 +758,15 @@ export const useGameStore = create<GameStore>()(
         if (version < 13) {
           for (const region of Object.values(state.regions)) {
             region.isUnderRebelControl ??= false;
+          }
+        }
+        // v13 → v14: the two-stage probabilistic crisis. Backfill the new
+        // per-region flags — no region starts with a spent diplomatic track or
+        // an active siege.
+        if (version < 14) {
+          for (const region of Object.values(state.regions)) {
+            region.diplomacyExhausted ??= false;
+            region.siegeTurns ??= 0;
           }
         }
         return persisted;

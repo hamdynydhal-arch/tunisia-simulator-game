@@ -25,6 +25,8 @@ const regionSchema = z.object({
   stateSatisfaction: num,
   nationalBelonging: num,
   isUnderRebelControl: z.boolean(),
+  diplomacyExhausted: z.boolean(),
+  siegeTurns: num,
 });
 
 const activeProjectSchema = z.object({

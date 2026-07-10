@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { divIcon } from "leaflet";
 import type {
   DivIcon,
@@ -57,22 +57,14 @@ function toggleRegion(id: RegionId) {
  * color (green→amber→red) at ~30% opacity so the satellite imagery shows
  * through, heavily tinted. Hover and selection change only the STROKE and
  * a slight opacity bump, so the heatmap stays readable in every state.
+ * Rebel-held regions keep their normal choropleth fill; the loss of
+ * sovereignty is signalled instead by a pulsing dark beacon (see RebelMarkers).
  */
 function styleForRegion(
   region: Region,
   isSelected: boolean,
   isHovered: boolean,
 ): PathOptions {
-  // A rebel-held governorate is charcoal/blackish-red — sovereignty lost.
-  if (region.isUnderRebelControl) {
-    return {
-      color: isSelected ? "#34d399" : isHovered ? "#fbbf24" : "#7f1d1d",
-      weight: isSelected ? 3 : isHovered ? 2.5 : 1.5,
-      opacity: 1,
-      fillColor: "#1a0505",
-      fillOpacity: 0.7,
-    };
-  }
   const fillColor = crisisColor(crisisScore(region));
   if (isSelected) {
     return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.42 };
@@ -403,6 +395,54 @@ function EventMarkers() {
   );
 }
 
+/**
+ * A pulsing dark beacon over every rebel-held governorate, placed at the
+ * region's centroid. It replaces the old charcoal polygon fill: the choropleth
+ * stays readable while a prominent, animated marker marks where the State has
+ * lost its monopoly on violence — and, during a siege, how many months remain.
+ */
+function RebelMarkers() {
+  const regions = useGameStore((state) => state.regions);
+
+  return (
+    <>
+      {Object.values(regions)
+        .filter((region) => region.isUnderRebelControl)
+        .map((region) => {
+          const point = REGION_POINTS[region.id];
+          if (!point) {
+            return null;
+          }
+          return (
+            <CircleMarker
+              key={region.id}
+              center={point}
+              radius={13}
+              // These must be top-level props, not `pathOptions`: react-leaflet
+              // applies pathOptions via Leaflet's setStyle(), which ignores
+              // className — the constructor only reads it at creation time.
+              className="rebel-marker"
+              color="#020617"
+              weight={3}
+              fillColor="#111827"
+              fillOpacity={0.9}
+              eventHandlers={{
+                click: () => useGameStore.getState().selectRegion(region.id),
+              }}
+            >
+              <Tooltip direction="top" className="region-tooltip">
+                {region.name} —{" "}
+                {region.siegeTurns > 0
+                  ? `تحت الحصار · ${region.siegeTurns} أشهر متبقية`
+                  : "خارج سيطرة الدولة"}
+              </Tooltip>
+            </CircleMarker>
+          );
+        })}
+    </>
+  );
+}
+
 /** Publishes the Leaflet instance so toasts can drive flyTo from outside. */
 function MapBridge() {
   const map = useMap();
@@ -439,6 +479,7 @@ export default function TunisiaMap({ className }: TunisiaMapProps) {
       />
       <GovernorateLayer />
       <MapInfrastructure />
+      <RebelMarkers />
       <EventMarkers />
       <MapBridge />
     </MapContainer>

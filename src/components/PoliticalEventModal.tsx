@@ -1,6 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
+import { computeNationalMetrics } from "@/lib/economy";
+import {
+  concessionsChance,
+  mediationChance,
+  scorchedSatDrop,
+  scorchedUsdLoss,
+  siegeTurnsFor,
+  surgicalChance,
+} from "@/lib/rebelCrisis";
 import { formatNetFlow, formatNumber } from "@/lib/format";
 
 /**
@@ -12,9 +22,22 @@ export default function PoliticalEventModal() {
   const event = useGameStore((state) => state.gameState.politicalEvent ?? null);
   const acknowledge = useGameStore((state) => state.acknowledgePoliticalEvent);
   const resolveChoice = useGameStore((state) => state.resolvePoliticalChoice);
-  const resolveRebel = useGameStore((state) => state.resolveRebelTakeover);
+  const resolveRebel = useGameStore((state) => state.resolveRebelAction);
   const regions = useGameStore((state) => state.regions);
   const budget = useGameStore((state) => state.gameState.totalBudget);
+  const nationalStability = useGameStore(
+    (state) => computeNationalMetrics(state.regions).stability,
+  );
+
+  // Martial Law is a pure UI switch into the War Room. Reset it whenever the
+  // crisis changes (a new takeover, or this one resolving/closing) using the
+  // render-phase "adjust state when a prop changes" pattern — no effect.
+  const [martialLaw, setMartialLaw] = useState(false);
+  const [lastEventId, setLastEventId] = useState(event?.id);
+  if (event?.id !== lastEventId) {
+    setLastEventId(event?.id);
+    setMartialLaw(false);
+  }
 
   if (!event) {
     return null;
@@ -107,31 +130,84 @@ export default function PoliticalEventModal() {
           </div>
         )}
 
-        {isRebel ? (
-          <div className="mt-6 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => resolveRebel("crackdown")}
-              disabled={budget < 400}
-              title={budget < 400 ? "الميزانية غير كافية" : undefined}
-              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-            >
-              ⚔️ التدخل العسكري
-              <span className="mt-0.5 block text-[11px] font-normal text-red-100/80">
-                400م د.ت · يستعيد السيطرة لكن يدمّر التنمية
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => resolveRebel("amnesty")}
-              className="rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20"
-            >
-              🕊️ مفاوضات واحتواء
-              <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
-                80م د.ت · يوفّر التنمية لكن الدولة تبدو ضعيفة
-              </span>
-            </button>
-          </div>
+        {isRebel && region ? (
+          region.diplomacyExhausted || martialLaw ? (
+            // ===== STAGE 2 — WAR ROOM (غرفة العمليات) =====
+            <div className="mt-6 space-y-2">
+              <p className="text-xs font-bold text-red-300">
+                {region.diplomacyExhausted
+                  ? "⚠️ فشل المسار الدبلوماسي — لم يبقَ إلا الحسم العسكري"
+                  : "🎖️ غرفة العمليات — الخيار العسكري"}
+              </p>
+              <button
+                type="button"
+                onClick={() => resolveRebel("surgical")}
+                className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-right text-sm font-bold text-white transition-colors hover:bg-red-500"
+              >
+                🎯 ضربة جراحية
+                <span className="mt-0.5 block text-[11px] font-normal text-red-100/80">
+                  300م د.ت · احتمال النجاح {Math.round(surgicalChance(region.developmentIndex))}٪ · دون خسائر جانبية
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRebel("scorched")}
+                className="w-full rounded-lg bg-orange-700 px-4 py-2.5 text-right text-sm font-bold text-white transition-colors hover:bg-orange-600"
+              >
+                🔥 الأرض المحروقة
+                <span className="mt-0.5 block text-[11px] font-normal text-orange-100/80">
+                  نجاح مؤكد 100٪ · 100م د.ت · −40 تنمية · −{scorchedUsdLoss(region.population)}م$ · −{scorchedSatDrop(region.population)} رضا
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRebel("siege")}
+                className="w-full rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-right text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20"
+              >
+                ⏳ الحصار والاستنزاف
+                <span className="mt-0.5 block text-[11px] font-normal text-amber-300/80">
+                  30م د.ت · {siegeTurnsFor(region.nationalBelonging)} أشهر حصار · لا ناتج وتراجع الرضا شهريًا
+                </span>
+              </button>
+            </div>
+          ) : (
+            // ===== STAGE 1 — DIPLOMACY (المسار الدبلوماسي) =====
+            <div className="mt-6 space-y-2">
+              <p className="text-xs font-bold text-sky-300">
+                🕊️ المسار الدبلوماسي — حاول استعادة الولاية دون حرب
+              </p>
+              <button
+                type="button"
+                onClick={() => resolveRebel("concessions")}
+                className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-right text-sm font-bold text-white transition-colors hover:bg-sky-500"
+              >
+                🤝 تنازلات كبرى
+                <span className="mt-0.5 block text-[11px] font-normal text-sky-100/80">
+                  100م د.ت · احتمال النجاح {Math.round(concessionsChance(nationalStability))}٪ · −20 أمن
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRebel("mediation")}
+                className="w-full rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-right text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20"
+              >
+                🗣️ وساطة محلية
+                <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
+                  20م د.ت · احتمال النجاح {Math.round(mediationChance(region.developmentIndex))}٪ · عند الفشل −10 تنمية
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMartialLaw(true)}
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-right text-sm font-bold text-red-300 transition-colors hover:bg-red-500/20"
+              >
+                ⚔️ إعلان الأحكام العرفية
+                <span className="mt-0.5 block text-[11px] font-normal text-red-300/70">
+                  تجاوز التفاوض والانتقال مباشرة إلى غرفة العمليات
+                </span>
+              </button>
+            </div>
+          )
         ) : isInteractive ? (
           <div className="mt-6 grid gap-2 sm:grid-cols-2">
             <button

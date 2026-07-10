@@ -151,9 +151,21 @@ export interface Region {
   /**
    * فقدان السيطرة — an armed rebel faction has seized the governorate. While
    * true it yields no taxes/GDP and its construction is paused, until the
-   * State resolves it (military crackdown or diplomatic amnesty).
+   * State resolves it through the two-stage crisis (diplomacy then war room).
    */
   isUnderRebelControl: boolean;
+  /**
+   * Set once the diplomatic track of a takeover has failed. It locks the
+   * crisis modal into its second (War Room) stage — negotiation is no longer
+   * on the table — and is reset when the State finally retakes the region.
+   */
+  diplomacyExhausted: boolean;
+  /**
+   * Remaining months of an active Siege & Attrition operation. While > 0 the
+   * governorate stays rebel-held (0 GDP) and bleeds satisfaction each month;
+   * at 0 the State retakes it automatically.
+   */
+  siegeTurns: number;
 }
 
 /** Region-level consequences of a completed project. */
