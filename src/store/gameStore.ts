@@ -82,6 +82,10 @@ const STRIKE_SATISFACTION_THRESHOLD = 20;
 const STRIKE_RESOLUTION_COST_TND = 50;
 /** Satisfaction restored by resolving a strike. */
 const STRIKE_RESOLUTION_SATISFACTION_GAIN = 15;
+/** Security cost of breaking a strike by force. */
+const STRIKE_CRACKDOWN_SECURITY_HIT = 20;
+/** Satisfaction cost of breaking a strike by force. */
+const STRIKE_CRACKDOWN_SATISFACTION_HIT = 10;
 
 /** Cash injection (and matching debt) from one emergency loan, million TND. */
 const LOAN_AMOUNT_TND = 500;
@@ -184,6 +188,12 @@ interface GameStore {
    * No-op if the budget can't cover it.
    */
   resolveStrike: (regionId: RegionId) => void;
+  /**
+   * Breaks a region's strike by force: free, clears `isStriking` instantly,
+   * but costs -20 local security and -10 local satisfaction (both clamped
+   * 0) — a brutal, budget-free alternative that risks armed rebellion.
+   */
+  crackdownStrike: (regionId: RegionId) => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -501,6 +511,27 @@ export const useGameStore = create<GameStore>()(
                 stateSatisfaction: Math.min(
                   100,
                   region.stateSatisfaction + STRIKE_RESOLUTION_SATISFACTION_GAIN,
+                ),
+              },
+            },
+          };
+        }),
+
+      crackdownStrike: (regionId) =>
+        set((state) => {
+          const region = state.regions[regionId];
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          return {
+            regions: {
+              ...state.regions,
+              [regionId]: {
+                ...region,
+                isStriking: false,
+                securityLevel: clampPct(
+                  region.securityLevel - STRIKE_CRACKDOWN_SECURITY_HIT,
+                ),
+                stateSatisfaction: clampPct(
+                  region.stateSatisfaction - STRIKE_CRACKDOWN_SATISFACTION_HIT,
                 ),
               },
             },

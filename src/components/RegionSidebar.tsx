@@ -20,6 +20,7 @@ export default function RegionSidebar() {
   const startProject = useGameStore((state) => state.startProject);
   const toggleCrackdown = useGameStore((state) => state.toggleCrackdown);
   const resolveStrike = useGameStore((state) => state.resolveStrike);
+  const crackdownStrike = useGameStore((state) => state.crackdownStrike);
   const populationTrend = useGameStore((state) =>
     state.selectedRegionId
       ? (state.populationTrends[state.selectedRegionId] ?? 0)
@@ -299,6 +300,14 @@ export default function RegionSidebar() {
             className="mt-2 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
           >
             مفاوضات نقابية (تكلفة: 50 مليون)
+          </button>
+          <button
+            type="button"
+            onClick={() => crackdownStrike(region.id)}
+            title="مجاني. ينهي الإضراب فوراً لكنه يدمر الأمن المحلي (-20) ويزيد الاحتقان (-10)، مما قد يشعل تمرداً مسلحاً."
+            className="mt-2 w-full rounded-lg border border-red-500/60 bg-red-950/40 px-4 py-2 text-sm font-bold text-red-300 transition-colors hover:bg-red-950/70"
+          >
+            كسر الإضراب بالقوة الأمنية
           </button>
         </div>
       )}

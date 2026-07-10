@@ -6,14 +6,24 @@ import { useGameStore } from "@/store/gameStore";
  * Terminal, unclosable overlay for the sustained-collapse endgame (three
  * consecutive months of national stability under 25) — distinct from the
  * instant `OutcomeScreen` collapse. No backdrop dismiss, no acknowledge
- * button: the only way out is a hard reload.
+ * button: the only way out is rebuilding the state.
  */
 export default function GameOverModal() {
   const isGameOver = useGameStore((state) => state.gameState.isGameOver);
+  const resetGame = useGameStore((state) => state.resetGame);
 
   if (!isGameOver) {
     return null;
   }
+
+  // resetGame() clears the in-memory store AND (via the persist middleware)
+  // overwrites the saved campaign, so the reload that follows boots into a
+  // fresh session instead of re-hydrating the same isGameOver: true state —
+  // otherwise the reload would just show this same modal again forever.
+  const rebuildState = () => {
+    resetGame();
+    window.location.reload();
+  };
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/95 p-4">
@@ -32,7 +42,7 @@ export default function GameOverModal() {
         </p>
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={rebuildState}
           className="mt-8 w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-red-500"
         >
           إعادة بناء الدولة
