@@ -304,19 +304,29 @@ export function computeNationalMetrics(
   const coastInteriorGap = coastDev / coastPop - interiorDev / interiorPop;
   const inequalityPenalty = Math.max(0, coastInteriorGap - 15) * 1.2;
 
+  // National Bleed Penalty: a flat, UNWEIGHTED -12 per collapsed or
+  // rebel-held governorate, so a total regional collapse forcibly drags the
+  // national mood down regardless of how populous the calm coast is —
+  // breaking the capital/coastal bias in the population-weighted averages.
+  let bleed = 0;
+  for (const region of Object.values(regions)) {
+    if (region.nationalBelonging < 10 || region.isUnderRebelControl) {
+      bleed += 12;
+    }
+  }
+
+  const baseStability =
+    0.4 * employmentScore + 0.3 * avgDev + 0.3 * avgSec - inequalityPenalty;
+
   return {
     gdpAnnual,
     avgDevelopment: avgDev,
-    stability: clamp(
-      0.4 * employmentScore + 0.3 * avgDev + 0.3 * avgSec - inequalityPenalty,
-      0,
-      100,
-    ),
+    stability: clamp(baseStability - bleed, 0, 100),
     coastInteriorGap,
     avgUnemployment,
     totalPopulation: pop,
     nationalSatisfaction: sat / pop,
-    overallNationalBelonging: belong / pop,
+    overallNationalBelonging: clamp(belong / pop - bleed, 0, 100),
   };
 }
 
