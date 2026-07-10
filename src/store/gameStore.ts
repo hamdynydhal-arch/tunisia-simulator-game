@@ -137,6 +137,13 @@ interface GameStore {
    */
   launchPropagandaCampaign: () => void;
   /**
+   * Toggles a region's security crackdown on its shadow economy: on, it
+   * restores normal taxation and grinds the shadow economy down over time at
+   * the cost of local satisfaction; off, it halts that satisfaction bleed
+   * (see the passive drift in `advanceTime`).
+   */
+  toggleCrackdown: (regionId: RegionId) => void;
+  /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
    */
@@ -395,6 +402,17 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      toggleCrackdown: (regionId) =>
+        set((state) => {
+          const region = state.regions[regionId];
+          return {
+            regions: {
+              ...state.regions,
+              [regionId]: { ...region, crackdownActive: !region.crackdownActive },
+            },
+          };
+        }),
+
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
         if (!template) {
@@ -536,6 +554,34 @@ export const useGameStore = create<GameStore>()(
             }
             if (besieged) {
               regions = besieged;
+            }
+          }
+
+          // Shadow Economy: an entrenched, untaxed smuggling economy quietly
+          // buys local goodwill (+2 satisfaction/month, capped) as long as the
+          // State looks away. A crackdown reverses the trade-off — it grinds
+          // the shadow economy down (−10/month) but the crackdown itself is
+          // deeply unpopular (−8 satisfaction/month).
+          {
+            let shadowed: Record<RegionId, Region> | null = null;
+            for (const region of Object.values(regions)) {
+              if (region.crackdownActive) {
+                shadowed ??= { ...regions };
+                shadowed[region.id] = {
+                  ...region,
+                  shadowEconomyLevel: Math.max(0, region.shadowEconomyLevel - 10),
+                  stateSatisfaction: Math.max(0, region.stateSatisfaction - 8),
+                };
+              } else if (region.shadowEconomyLevel > 30) {
+                shadowed ??= { ...regions };
+                shadowed[region.id] = {
+                  ...region,
+                  stateSatisfaction: Math.min(100, region.stateSatisfaction + 2),
+                };
+              }
+            }
+            if (shadowed) {
+              regions = shadowed;
             }
           }
 
@@ -684,7 +730,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 15,
+      version: 16,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -817,6 +863,15 @@ export const useGameStore = create<GameStore>()(
         // credibility starts untouched.
         if (version < 15) {
           state.gameState.stateCredibility ??= 100;
+        }
+        // v15 → v16: the Shadow Economy. Backfill each region's smuggling
+        // level from the seed data and start every crackdown switched off.
+        if (version < 16) {
+          for (const region of Object.values(state.regions)) {
+            const seed = INITIAL_REGIONS[region.id];
+            region.shadowEconomyLevel ??= seed.shadowEconomyLevel;
+            region.crackdownActive ??= false;
+          }
         }
         return persisted;
       },

@@ -173,6 +173,20 @@ export interface Region {
    * at 0 the State retakes it automatically.
    */
   siegeTurns: number;
+  /**
+   * الاقتصاد الموازي — how entrenched cross-border smuggling and informal
+   * trade are here, 0–100. Above 30, and absent a crackdown, the state
+   * collects no tax from this governorate but locals quietly welcome the
+   * income (`stateSatisfaction` drifts up).
+   */
+  shadowEconomyLevel: number;
+  /**
+   * Whether a security crackdown on the shadow economy is underway. It
+   * restores normal taxation and grinds the shadow economy down (−10/month),
+   * but the crackdown is deeply unpopular locally (`stateSatisfaction`
+   * −8/month) — a dilemma between fiscal and social stability.
+   */
+  crackdownActive: boolean;
 }
 
 /** Region-level consequences of a completed project. */

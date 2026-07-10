@@ -18,6 +18,7 @@ export default function RegionSidebar() {
   const gameState = useGameStore((state) => state.gameState);
   const activeProjects = useGameStore((state) => state.activeProjects);
   const startProject = useGameStore((state) => state.startProject);
+  const toggleCrackdown = useGameStore((state) => state.toggleCrackdown);
   const populationTrend = useGameStore((state) =>
     state.selectedRegionId
       ? (state.populationTrends[state.selectedRegionId] ?? 0)
@@ -212,6 +213,62 @@ export default function RegionSidebar() {
           </dd>
         </div>
       </dl>
+
+      {!region.isUnderRebelControl && (
+        <section className="mt-8">
+          <h3 className="text-sm font-semibold text-slate-300">
+            الاقتصاد الموازي
+          </h3>
+          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">حجم التهريب</span>
+              <span
+                className={`font-bold tabular-nums ${
+                  region.shadowEconomyLevel > 60
+                    ? "text-red-400"
+                    : region.shadowEconomyLevel > 30
+                      ? "text-amber-300"
+                      : "text-emerald-400"
+                }`}
+              >
+                {Math.round(region.shadowEconomyLevel)}٪
+              </span>
+            </div>
+            {region.crackdownActive ? (
+              <>
+                <p className="mt-2 text-xs text-amber-300">
+                  ⚠️ حملة أمنية جارية: الاقتصاد الموازي يتراجع لكن رضا
+                  المواطنين ينهار شهريًا.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => toggleCrackdown(region.id)}
+                  className="mt-3 w-full rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20"
+                >
+                  إيقاف الحملة الأمنية
+                </button>
+              </>
+            ) : (
+              <>
+                {region.shadowEconomyLevel > 30 && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    الجباية معطّلة هنا بسبب اتساع الاقتصاد الموازي — لكن
+                    الأهالي راضون عن العائد غير المعلن.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleCrackdown(region.id)}
+                  title="تحذير: يوقف نزيف الجباية، لكنه يفتك برضا المواطنين محليًا مع الوقت وقد يشعل التمرد."
+                  className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-500"
+                >
+                  إطلاق حملة أمنية لتجفيف المنابع
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="mt-8">
         <h3 className="text-sm font-semibold text-slate-300">المشاريع المتاحة</h3>

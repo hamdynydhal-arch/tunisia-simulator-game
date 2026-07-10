@@ -79,6 +79,11 @@ export function monthlyRegionIncome(region: Region): number {
   if (region.isUnderRebelControl) {
     return 0;
   }
+  // An entrenched, untaxed shadow economy: the state collects nothing here
+  // unless it is actively cracking down on it.
+  if (region.shadowEconomyLevel > 30 && !region.crackdownActive) {
+    return 0;
+  }
   const employedThousands =
     (region.population / 1_000) * (1 - region.unemploymentRate / 100);
   return (

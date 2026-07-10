@@ -28,6 +28,8 @@ const REGION_LIST: readonly Omit<
   | "isUnderRebelControl"
   | "diplomacyExhausted"
   | "siegeTurns"
+  | "shadowEconomyLevel"
+  | "crackdownActive"
 >[] = [
   {
     id: "tunis",
@@ -358,6 +360,8 @@ type RegionSeed = Omit<
   | "isUnderRebelControl"
   | "diplomacyExhausted"
   | "siegeTurns"
+  | "shadowEconomyLevel"
+  | "crackdownActive"
 >;
 
 function seedStateSatisfaction(region: RegionSeed): number {
@@ -375,6 +379,28 @@ function seedNationalBelonging(region: RegionSeed): number {
   );
 }
 
+/** Deterministic 0–1 pseudo-random draw from a region id, stable across the
+ *  server prerender and the client's own module evaluation (unlike
+ *  `Math.random`, which would diverge between the two and hydrate-mismatch). */
+function hashUnit(id: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return ((hash >>> 0) % 1000) / 1000;
+}
+
+/**
+ * الاقتصاد الموازي seed: landlocked interior governorates — the historical
+ * smuggling corridors along the Algerian/Libyan borders — start heavily
+ * entrenched (60–90); the coast starts only lightly exposed (10–40).
+ */
+function seedShadowEconomyLevel(region: RegionSeed): number {
+  const [lo, hi] = region.isCoastal ? [10, 40] : [60, 90];
+  return Math.round(lo + hashUnit(region.id) * (hi - lo));
+}
+
 export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
   REGION_LIST.map((region) => [
     region.id,
@@ -385,6 +411,8 @@ export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
       isUnderRebelControl: false,
       diplomacyExhausted: false,
       siegeTurns: 0,
+      shadowEconomyLevel: seedShadowEconomyLevel(region),
+      crackdownActive: false,
     },
   ]),
 ) as Record<RegionId, Region>;
