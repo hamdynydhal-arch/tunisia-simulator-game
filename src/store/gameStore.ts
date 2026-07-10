@@ -29,6 +29,7 @@ import {
   evaluatePoliticalEvents,
 } from "@/lib/eventManager";
 import { applyDemographics } from "@/lib/demographics";
+import { applyDevelopmentMigration } from "@/lib/migration";
 import {
   concessionsChance,
   mediationChance,
@@ -61,12 +62,26 @@ const INITIAL_GAME_STATE: GameState = {
   outcome: null,
   outcomeReason: null,
   stateCredibility: 100,
+  sovereignDebt: 0,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
 const PROPAGANDA_COST_TND = 25;
 /** Credibility spent per campaign — the Lie Tax. */
 const PROPAGANDA_CREDIBILITY_COST = 12;
+
+/** Cash injection (and matching debt) from one emergency loan, million TND. */
+const LOAN_AMOUNT_TND = 500;
+/** Austerity hit to every region's nationalBelonging, applied immediately. */
+const LOAN_BELONGING_HIT = 15;
+/**
+ * National stability = 0.4·employment + 0.3·avgDevelopment + 0.3·avgSecurity
+ * (see `computeNationalMetrics`). Splitting a flat −10 target evenly across
+ * the two 0.3-weighted regional fields (development, security) lands the
+ * national stability hit at exactly −10 the moment the loan is taken, and
+ * reads as austerity cutting both public investment and security funding.
+ */
+const LOAN_STABILITY_HIT_PER_FIELD = 10 / 0.6;
 
 /** Regime collapse: stability below this is the point of no return. */
 const COLLAPSE_STABILITY = 15;
@@ -143,6 +158,13 @@ interface GameStore {
    * (see the passive drift in `advanceTime`).
    */
   toggleCrackdown: (regionId: RegionId) => void;
+  /**
+   * Draws a 500M TND emergency loan: an immediate, unconditional cash
+   * injection matched by an equal rise in sovereign debt, paid for with a
+   * severe, immediate austerity hit to every region's belonging, development
+   * and security (see the LOAN_* constants for the exact math).
+   */
+  takeEmergencyLoan: () => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -413,6 +435,34 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      takeEmergencyLoan: () =>
+        set((state) => {
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            regions[region.id] = {
+              ...region,
+              nationalBelonging: clampPct(
+                region.nationalBelonging - LOAN_BELONGING_HIT,
+              ),
+              developmentIndex: clampPct(
+                region.developmentIndex - LOAN_STABILITY_HIT_PER_FIELD,
+              ),
+              securityLevel: clampPct(
+                region.securityLevel - LOAN_STABILITY_HIT_PER_FIELD,
+              ),
+            };
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              totalBudget: state.gameState.totalBudget + LOAN_AMOUNT_TND,
+              sovereignDebt: state.gameState.sovereignDebt + LOAN_AMOUNT_TND,
+            },
+            regions,
+          };
+        }),
+
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
         if (!template) {
@@ -585,6 +635,12 @@ export const useGameStore = create<GameStore>()(
             }
           }
 
+          // Demographic migration: failing governorates (developmentIndex <
+          // 25) shed 1% of their population every month to the single most
+          // developed governorate, which pays an overcrowding cost in
+          // exchange.
+          regions = applyDevelopmentMigration(regions);
+
           // Socio-political engine: weighted, seasonal, per-region cooldowns.
           const elapsingMonth = Number(
             state.gameState.currentDate.slice(5, 7),
@@ -730,7 +786,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 16,
+      version: 17,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -872,6 +928,10 @@ export const useGameStore = create<GameStore>()(
             region.shadowEconomyLevel ??= seed.shadowEconomyLevel;
             region.crackdownActive ??= false;
           }
+        }
+        // v16 → v17: sovereign debt. No loan has been drawn yet.
+        if (version < 17) {
+          state.gameState.sovereignDebt ??= 0;
         }
         return persisted;
       },

@@ -57,6 +57,7 @@ const gameStateSchema = z.object({
   outcome: z.enum(["collapse", "victory"]).nullable(),
   outcomeReason: z.string().nullable(),
   stateCredibility: num,
+  sovereignDebt: num,
 });
 
 export const persistedStateSchema = z.object({

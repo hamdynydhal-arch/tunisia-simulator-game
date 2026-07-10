@@ -100,6 +100,11 @@ export interface GameState {
    * has strictly diminishing returns.
    */
   stateCredibility: number;
+  /**
+   * الدين السيادي — accumulated foreign debt, million TND. Only ever rises
+   * (via emergency loans); there is no repayment mechanic yet.
+   */
+  sovereignDebt: number;
 }
 
 /** How a campaign can end. */
