@@ -93,6 +93,13 @@ export interface GameState {
   outcome: GameOutcome | null;
   /** Arabic narrative explaining how the campaign ended. */
   outcomeReason: string | null;
+  /**
+   * مصداقية الدولة — how much the public still trusts state media, 0–100.
+   * Spent by every propaganda campaign (the Lie Tax); the fabricated
+   * satisfaction boost a campaign buys shrinks in proportion, so repeated use
+   * has strictly diminishing returns.
+   */
+  stateCredibility: number;
 }
 
 /** How a campaign can end. */

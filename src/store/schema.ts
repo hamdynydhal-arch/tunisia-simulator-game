@@ -54,6 +54,7 @@ const gameStateSchema = z.object({
   boomedRegions: z.array(idString),
   outcome: z.enum(["collapse", "victory"]).nullable(),
   outcomeReason: z.string().nullable(),
+  stateCredibility: num,
 });
 
 export const persistedStateSchema = z.object({

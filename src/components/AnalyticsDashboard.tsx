@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
+import SovereignArsenal from "@/components/SovereignArsenal";
 import { formatGameDate, formatMillions, formatNumber } from "@/lib/format";
 import type { HistoryPoint } from "@/types/game";
 
@@ -194,7 +195,11 @@ export default function AnalyticsDashboard() {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="mt-5">
+          <SovereignArsenal />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <TrendChart
             title="الناتج الوطني (سنوي)"
             color={SERIES.gdp}

@@ -60,7 +60,13 @@ const INITIAL_GAME_STATE: GameState = {
   boomedRegions: [],
   outcome: null,
   outcomeReason: null,
+  stateCredibility: 100,
 };
+
+/** Fixed cost of one propaganda campaign, million TND. */
+const PROPAGANDA_COST_TND = 25;
+/** Credibility spent per campaign — the Lie Tax. */
+const PROPAGANDA_CREDIBILITY_COST = 12;
 
 /** Regime collapse: stability below this is the point of no return. */
 const COLLAPSE_STABILITY = 15;
@@ -123,6 +129,13 @@ interface GameStore {
    * rolled with the exact odds the modal displayed to the player.
    */
   resolveRebelAction: (action: RebelAction) => void;
+  /**
+   * Fires a media propaganda campaign: 25M TND buys a national satisfaction
+   * boost that shrinks with `stateCredibility` (diminishing returns), then
+   * spends 12 points of that same credibility — the Lie Tax. No-op if the
+   * budget can't cover it.
+   */
+  launchPropagandaCampaign: () => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -349,6 +362,37 @@ export const useGameStore = create<GameStore>()(
             default:
               return state;
           }
+        }),
+
+      launchPropagandaCampaign: () =>
+        set((state) => {
+          const { totalBudget, stateCredibility } = state.gameState;
+          if (totalBudget < PROPAGANDA_COST_TND) {
+            return state;
+          }
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          // Diminishing returns: the same lie buys less satisfaction the more
+          // spent credibility has already burned through.
+          const boost = Math.max(0, Math.floor(15 * (stateCredibility / 100)));
+
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            regions[region.id] = {
+              ...region,
+              stateSatisfaction: clampPct(region.stateSatisfaction + boost),
+            };
+          }
+
+          return {
+            gameState: {
+              ...state.gameState,
+              totalBudget: totalBudget - PROPAGANDA_COST_TND,
+              stateCredibility: clampPct(
+                stateCredibility - PROPAGANDA_CREDIBILITY_COST,
+              ),
+            },
+            regions,
+          };
         }),
 
       startProject: (projectId, regionId) => {
@@ -640,7 +684,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 14,
+      version: 15,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -768,6 +812,11 @@ export const useGameStore = create<GameStore>()(
             region.diplomacyExhausted ??= false;
             region.siegeTurns ??= 0;
           }
+        }
+        // v14 → v15: the media propaganda engine. No campaign has run yet, so
+        // credibility starts untouched.
+        if (version < 15) {
+          state.gameState.stateCredibility ??= 100;
         }
         return persisted;
       },
