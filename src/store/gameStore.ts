@@ -65,6 +65,8 @@ const INITIAL_GAME_STATE: GameState = {
   sovereignDebt: 0,
   criticalStabilityMonths: 0,
   isGameOver: false,
+  purchasingPowerIndex: 100,
+  bctIndependence: true,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -99,6 +101,26 @@ const LOAN_BELONGING_HIT = 15;
  * reads as austerity cutting both public investment and security funding.
  */
 const LOAN_STABILITY_HIT_PER_FIELD = 10 / 0.6;
+
+/** Abstract fixed exchange rate at the Central Bank: 1 USD = 3 TND. */
+const USD_TND_RATE = 3;
+/** Reference chunk the inflation/deflation rates below are quoted per. */
+const EXCHANGE_CHUNK_USD = 50;
+/** purchasingPowerIndex lost per EXCHANGE_CHUNK_USD of reserves liquidated. */
+const LIQUIDATION_INFLATION_HIT = 5;
+/** purchasingPowerIndex gained per EXCHANGE_CHUNK_USD of USD repurchased. */
+const DEFLATION_BOOST = 2;
+/** Below this index, an independent BCT refuses to liquidate reserves. */
+const BCT_BLOCK_THRESHOLD = 70;
+/** Sovereign credibility cost of forcing the Central Bank's hand. */
+const OVERRIDE_CREDIBILITY_HIT = 20;
+/** Same LOAN_STABILITY_HIT_PER_FIELD split (see above) for the override's
+ *  −15 national-stability target. */
+const OVERRIDE_STABILITY_HIT_PER_FIELD = 15 / 0.6;
+/** Below this purchasing power, the cost of living bites nationally. */
+const INFLATION_BLEED_THRESHOLD = 80;
+/** stateSatisfaction lost per 10 points purchasingPowerIndex sits under 80. */
+const INFLATION_BLEED_PER_10_POINTS = 2;
 
 /** Regime collapse: stability below this is the point of no return. */
 const COLLAPSE_STABILITY = 15;
@@ -194,6 +216,29 @@ interface GameStore {
    * 0) — a brutal, budget-free alternative that risks armed rebellion.
    */
   crackdownStrike: (regionId: RegionId) => void;
+  /**
+   * Liquidates `usdAmount` of hard-currency reserves at the Central Bank's
+   * fixed 1:3 rate (USD→TND), scaling the inflation hit proportionally
+   * (−5 purchasingPowerIndex per 50M USD). Fails — no-op, returns false —
+   * if reserves don't cover it, or if purchasing power has already fallen
+   * below 70 and the Bank is still independent (it refuses to print more).
+   */
+  exchangeUsdToTnd: (usdAmount: number) => boolean;
+  /**
+   * Buys back `tndAmount` worth of USD reserves at the same 1:3 rate
+   * (TND→USD), restoring purchasing power proportionally (+2 per 150M TND
+   * spent, clamped 100). Fails — no-op, returns false — if the budget can't
+   * cover it.
+   */
+  exchangeTndToUsd: (tndAmount: number) => boolean;
+  /**
+   * Forces the Central Bank's independence off, permanently unlocking
+   * `exchangeUsdToTnd` regardless of inflation. Costs -20 state credibility
+   * and a further -15 national-stability-equivalent hit (split across every
+   * region's development and security, mirroring the emergency-loan
+   * austerity math). No-op if the Bank is already overridden.
+   */
+  overrideBCT: () => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -538,6 +583,84 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      exchangeUsdToTnd: (usdAmount) => {
+        const { gameState } = get();
+        if (
+          gameState.purchasingPowerIndex < BCT_BLOCK_THRESHOLD &&
+          gameState.bctIndependence
+        ) {
+          return false;
+        }
+        if (gameState.hardCurrency < usdAmount) {
+          return false;
+        }
+        const inflationHit =
+          (usdAmount / EXCHANGE_CHUNK_USD) * LIQUIDATION_INFLATION_HIT;
+        set((state) => ({
+          gameState: {
+            ...state.gameState,
+            hardCurrency: state.gameState.hardCurrency - usdAmount,
+            totalBudget: state.gameState.totalBudget + usdAmount * USD_TND_RATE,
+            purchasingPowerIndex: Math.min(
+              100,
+              Math.max(0, state.gameState.purchasingPowerIndex - inflationHit),
+            ),
+          },
+        }));
+        return true;
+      },
+
+      exchangeTndToUsd: (tndAmount) => {
+        const { gameState } = get();
+        if (gameState.totalBudget < tndAmount) {
+          return false;
+        }
+        const boost =
+          (tndAmount / (EXCHANGE_CHUNK_USD * USD_TND_RATE)) * DEFLATION_BOOST;
+        set((state) => ({
+          gameState: {
+            ...state.gameState,
+            totalBudget: state.gameState.totalBudget - tndAmount,
+            hardCurrency: state.gameState.hardCurrency + tndAmount / USD_TND_RATE,
+            purchasingPowerIndex: Math.min(
+              100,
+              Math.max(0, state.gameState.purchasingPowerIndex + boost),
+            ),
+          },
+        }));
+        return true;
+      },
+
+      overrideBCT: () =>
+        set((state) => {
+          if (!state.gameState.bctIndependence) {
+            return state;
+          }
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            regions[region.id] = {
+              ...region,
+              developmentIndex: clampPct(
+                region.developmentIndex - OVERRIDE_STABILITY_HIT_PER_FIELD,
+              ),
+              securityLevel: clampPct(
+                region.securityLevel - OVERRIDE_STABILITY_HIT_PER_FIELD,
+              ),
+            };
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              bctIndependence: false,
+              stateCredibility: clampPct(
+                state.gameState.stateCredibility - OVERRIDE_CREDIBILITY_HIT,
+              ),
+            },
+            regions,
+          };
+        }),
+
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
         if (!template) {
@@ -727,6 +850,28 @@ export const useGameStore = create<GameStore>()(
           const harkaResult = applyHarkaAndInfiltration(regions);
           regions = harkaResult.regions;
 
+          // Inflation Bleed: once purchasing power falls below 80, the cost
+          // of living erodes citizen satisfaction everywhere — −2 per 10
+          // points the index sits under 80 (e.g. index 60 → −4/month). Runs
+          // before the strike loop so this month's inflation can itself tip
+          // a region into a strike.
+          if (state.gameState.purchasingPowerIndex < INFLATION_BLEED_THRESHOLD) {
+            const deficitUnits = Math.floor(
+              (INFLATION_BLEED_THRESHOLD - state.gameState.purchasingPowerIndex) / 10,
+            );
+            const bleed = deficitUnits * INFLATION_BLEED_PER_10_POINTS;
+            if (bleed > 0) {
+              const inflated = { ...regions };
+              for (const region of Object.values(regions)) {
+                inflated[region.id] = {
+                  ...region,
+                  stateSatisfaction: Math.max(0, region.stateSatisfaction - bleed),
+                };
+              }
+              regions = inflated;
+            }
+          }
+
           // Organized resistance: satisfaction collapsing below 20 triggers a
           // general strike (0 GDP/taxes via `monthlyRegionIncome`). Unlike the
           // other systemic loops this does NOT auto-resolve — only the
@@ -907,7 +1052,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 19,
+      version: 20,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1073,6 +1218,12 @@ export const useGameStore = create<GameStore>()(
           }
           state.gameState.criticalStabilityMonths ??= 0;
           state.gameState.isGameOver ??= false;
+        }
+        // v19 → v20: the Central Bank. Purchasing power starts undamaged and
+        // the Bank starts independent.
+        if (version < 20) {
+          state.gameState.purchasingPowerIndex ??= 100;
+          state.gameState.bctIndependence ??= true;
         }
         return persisted;
       },

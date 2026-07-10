@@ -64,6 +64,8 @@ const gameStateSchema = z.object({
   sovereignDebt: num,
   criticalStabilityMonths: num,
   isGameOver: z.boolean(),
+  purchasingPowerIndex: num,
+  bctIndependence: z.boolean(),
 });
 
 export const persistedStateSchema = z.object({

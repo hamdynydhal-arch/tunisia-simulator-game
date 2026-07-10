@@ -116,6 +116,18 @@ export interface GameState {
    * true, `advanceTime` freezes — only a hard reload recovers.
    */
   isGameOver: boolean;
+  /**
+   * مؤشر المقدرة الشرائية — national purchasing power, 0–100. Erodes when the
+   * Central Bank prints TND against USD reserves; below 80 it bleeds citizen
+   * satisfaction nationwide via the cost of living.
+   */
+  purchasingPowerIndex: number;
+  /**
+   * Whether the Central Bank (البنك المركزي) still operates independently of
+   * the executive. While true it can refuse to liquidate reserves once
+   * inflation is severe; `overrideBCT` permanently sets this false.
+   */
+  bctIndependence: boolean;
 }
 
 /** How a campaign can end. */
