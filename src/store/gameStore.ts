@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { checksummedStorage } from "@/store/persistStorage";
+import { isValidPersistedState } from "@/store/schema";
 import type {
   ActiveProject,
   CompletedProject,
@@ -501,8 +503,17 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: "tunisia-simulator-campaign",
-      storage: createJSONStorage(() => localStorage),
+      // Checksummed + Base64 storage: hand-edited saves fail verification and
+      // are dropped (anti-cheat).
+      storage: createJSONStorage(() => checksummedStorage),
       version: 13,
+      // Zod gate: after migration, a save that isn't a structurally valid
+      // campaign is discarded and the clean default state is used instead of
+      // crashing on malformed data.
+      merge: (persistedState, currentState) =>
+        isValidPersistedState(persistedState)
+          ? { ...currentState, ...(persistedState as object) }
+          : currentState,
       migrate: (persisted, version) => {
         const state = persisted as {
           gameState: GameState;

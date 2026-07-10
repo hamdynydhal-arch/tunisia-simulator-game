@@ -26,6 +26,26 @@ export const viewport: Viewport = {
   themeColor: "#020617",
 };
 
+/**
+ * Content-Security-Policy. Enforced as a meta tag because the app is a static
+ * export (no server to set headers); Vercel additionally applies it — with
+ * frame-ancestors — at the edge via vercel.json. Only our own scripts and the
+ * Esri World Imagery tiles Leaflet loads may execute or connect. `unsafe-inline`
+ * is required for the static export's inline hydration script and Leaflet's
+ * injected styles (a static build has no nonce mechanism).
+ */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://server.arcgisonline.com https://*.arcgisonline.com",
+  "connect-src 'self' https://server.arcgisonline.com https://*.arcgisonline.com",
+  "font-src 'self' data:",
+  "frame-ancestors 'none'",
+].join("; ");
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,6 +53,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
+      <head>
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content={CONTENT_SECURITY_POLICY}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <StoreHydrator />
         {children}
