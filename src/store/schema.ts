@@ -32,6 +32,7 @@ const regionSchema = z.object({
   crackdownActive: z.boolean(),
   activeHarka: z.boolean(),
   activeInfiltration: z.boolean(),
+  isStriking: z.boolean(),
 });
 
 const activeProjectSchema = z.object({
@@ -61,6 +62,8 @@ const gameStateSchema = z.object({
   outcomeReason: z.string().nullable(),
   stateCredibility: num,
   sovereignDebt: num,
+  criticalStabilityMonths: num,
+  isGameOver: z.boolean(),
 });
 
 export const persistedStateSchema = z.object({

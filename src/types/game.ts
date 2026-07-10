@@ -105,6 +105,17 @@ export interface GameState {
    * (via emergency loans); there is no repayment mechanic yet.
    */
   sovereignDebt: number;
+  /**
+   * Consecutive months national stability has stayed below 25. Resets to 0
+   * the moment stability recovers; reaching 3 sets `isGameOver`.
+   */
+  criticalStabilityMonths: number;
+  /**
+   * Regime collapse via sustained instability (distinct from the instant
+   * `outcome: "collapse"` on a single catastrophic stability crash). Once
+   * true, `advanceTime` freezes — only a hard reload recovers.
+   */
+  isGameOver: boolean;
 }
 
 /** How a campaign can end. */
@@ -206,6 +217,12 @@ export interface Region {
    * economy). Recomputed every tick.
    */
   activeInfiltration: boolean;
+  /**
+   * إضراب عام — organized labour has shut this governorate down (satisfaction
+   * collapsed below 20). Yields 0 GDP/taxes until the State negotiates a
+   * resolution (`resolveStrike`); does not clear on its own.
+   */
+  isStriking: boolean;
 }
 
 /** Region-level consequences of a completed project. */

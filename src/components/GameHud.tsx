@@ -24,13 +24,21 @@ export default function GameHud() {
     [regions, activeProjects, completedProjects],
   );
   const national = useMemo(() => computeNationalMetrics(regions), [regions]);
-  const paused = Boolean(gameState.politicalEvent || gameState.outcome);
+  const paused = Boolean(
+    gameState.politicalEvent || gameState.outcome || gameState.isGameOver,
+  );
 
   const inDebt = gameState.totalBudget < 0;
+  const monthsToCollapse = 3 - gameState.criticalStabilityMonths;
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/80 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2">
+    <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+      {gameState.criticalStabilityMonths > 0 && !gameState.isGameOver && (
+        <div className="animate-pulse bg-red-600 px-4 py-1.5 text-center text-sm font-bold text-white">
+          🚨 تحذير سيادي: النظام مهدد بالسقوط خلال {monthsToCollapse} شهر!
+        </div>
+      )}
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <h1 className="me-auto text-base font-semibold tracking-wide text-slate-100">
           محاكي تونس
         </h1>

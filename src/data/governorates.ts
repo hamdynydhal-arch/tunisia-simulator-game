@@ -33,6 +33,7 @@ const REGION_LIST: readonly Omit<
   | "isBorder"
   | "activeHarka"
   | "activeInfiltration"
+  | "isStriking"
 >[] = [
   {
     id: "tunis",
@@ -385,6 +386,7 @@ type RegionSeed = Omit<
   | "isBorder"
   | "activeHarka"
   | "activeInfiltration"
+  | "isStriking"
 >;
 
 function seedStateSatisfaction(region: RegionSeed): number {
@@ -439,6 +441,7 @@ export const INITIAL_REGIONS: Record<RegionId, Region> = Object.fromEntries(
       isBorder: BORDER_REGION_IDS.includes(region.id),
       activeHarka: false,
       activeInfiltration: false,
+      isStriking: false,
     },
   ]),
 ) as Record<RegionId, Region>;

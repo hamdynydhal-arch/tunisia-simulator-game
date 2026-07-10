@@ -63,12 +63,25 @@ const INITIAL_GAME_STATE: GameState = {
   outcomeReason: null,
   stateCredibility: 100,
   sovereignDebt: 0,
+  criticalStabilityMonths: 0,
+  isGameOver: false,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
 const PROPAGANDA_COST_TND = 25;
 /** Credibility spent per campaign — the Lie Tax. */
 const PROPAGANDA_CREDIBILITY_COST = 12;
+
+/** Below this national stability, a month counts toward sustained collapse. */
+const CRITICAL_STABILITY_THRESHOLD = 25;
+/** Consecutive months at/under the threshold before the regime falls. */
+const CRITICAL_STABILITY_MONTHS_LIMIT = 3;
+/** Below this local satisfaction, organized labour shuts a region down. */
+const STRIKE_SATISFACTION_THRESHOLD = 20;
+/** Cost of a union negotiation that ends a strike, million TND. */
+const STRIKE_RESOLUTION_COST_TND = 50;
+/** Satisfaction restored by resolving a strike. */
+const STRIKE_RESOLUTION_SATISFACTION_GAIN = 15;
 
 /** Cash injection (and matching debt) from one emergency loan, million TND. */
 const LOAN_AMOUNT_TND = 500;
@@ -165,6 +178,12 @@ interface GameStore {
    * and security (see the LOAN_* constants for the exact math).
    */
   takeEmergencyLoan: () => void;
+  /**
+   * Negotiates an end to a region's general strike: costs 50M TND, clears
+   * `isStriking`, and restores 15 points of local satisfaction (clamped 100).
+   * No-op if the budget can't cover it.
+   */
+  resolveStrike: (regionId: RegionId) => void;
   /**
    * Starts a project if funds cover it, the region is below its project
    * limit, and geography/tech-tree prerequisites are met.
@@ -463,6 +482,31 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      resolveStrike: (regionId) =>
+        set((state) => {
+          if (state.gameState.totalBudget < STRIKE_RESOLUTION_COST_TND) {
+            return state;
+          }
+          const region = state.regions[regionId];
+          return {
+            gameState: {
+              ...state.gameState,
+              totalBudget: state.gameState.totalBudget - STRIKE_RESOLUTION_COST_TND,
+            },
+            regions: {
+              ...state.regions,
+              [regionId]: {
+                ...region,
+                isStriking: false,
+                stateSatisfaction: Math.min(
+                  100,
+                  region.stateSatisfaction + STRIKE_RESOLUTION_SATISFACTION_GAIN,
+                ),
+              },
+            },
+          };
+        }),
+
       startProject: (projectId, regionId) => {
         const template = getProjectTemplate(projectId);
         if (!template) {
@@ -518,9 +562,13 @@ export const useGameStore = create<GameStore>()(
 
       advanceTime: () =>
         set((state) => {
-          // A political event on screen — or a finished campaign — freezes
-          // the loop.
-          if (state.gameState.politicalEvent || state.gameState.outcome) {
+          // A political event on screen, a finished campaign, or a sustained
+          // regime collapse all freeze the loop.
+          if (
+            state.gameState.politicalEvent ||
+            state.gameState.outcome ||
+            state.gameState.isGameOver
+          ) {
             return state;
           }
 
@@ -648,6 +696,27 @@ export const useGameStore = create<GameStore>()(
           const harkaResult = applyHarkaAndInfiltration(regions);
           regions = harkaResult.regions;
 
+          // Organized resistance: satisfaction collapsing below 20 triggers a
+          // general strike (0 GDP/taxes via `monthlyRegionIncome`). Unlike the
+          // other systemic loops this does NOT auto-resolve — only the
+          // player's `resolveStrike` negotiation lifts it.
+          {
+            let struck: Record<RegionId, Region> | null = null;
+            for (const region of Object.values(regions)) {
+              if (
+                !region.isStriking &&
+                !region.isUnderRebelControl &&
+                region.stateSatisfaction < STRIKE_SATISFACTION_THRESHOLD
+              ) {
+                struck ??= { ...regions };
+                struck[region.id] = { ...region, isStriking: true };
+              }
+            }
+            if (struck) {
+              regions = struck;
+            }
+          }
+
           // Socio-political engine: weighted, seasonal, per-region cooldowns.
           const elapsingMonth = Number(
             state.gameState.currentDate.slice(5, 7),
@@ -720,6 +789,16 @@ export const useGameStore = create<GameStore>()(
             outcomeReason = `عشر سنوات من الحكم الرشيد: تنمية وطنية بلغت ${Math.round(metrics.avgDevelopment)}/100 وبطالة دون ${Math.round(metrics.avgUnemployment)}٪. دخلت تونس عصرها الذهبي.`;
           }
 
+          // Endgame: sustained (not just momentary) sub-critical stability.
+          // Distinct from the instant `outcome: "collapse"` above — this is
+          // three consecutive months under 25, not one catastrophic crash.
+          const criticalStabilityMonths =
+            metrics.stability < CRITICAL_STABILITY_THRESHOLD
+              ? state.gameState.criticalStabilityMonths + 1
+              : 0;
+          const isGameOver =
+            criticalStabilityMonths >= CRITICAL_STABILITY_MONTHS_LIMIT;
+
           const history = [
             ...state.history,
             {
@@ -760,6 +839,8 @@ export const useGameStore = create<GameStore>()(
               boomedRegions: political.boomedRegion
                 ? [...state.gameState.boomedRegions, political.boomedRegion]
                 : state.gameState.boomedRegions,
+              criticalStabilityMonths,
+              isGameOver,
             },
             activeProjects: ticked.filter(
               (project) => project.monthsRemaining > 0,
@@ -795,7 +876,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 18,
+      version: 19,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -952,6 +1033,15 @@ export const useGameStore = create<GameStore>()(
             region.activeHarka ??= false;
             region.activeInfiltration ??= false;
           }
+        }
+        // v18 → v19: organized resistance & the sustained-collapse endgame.
+        // No region starts on strike; no prior sub-critical months banked.
+        if (version < 19) {
+          for (const region of Object.values(state.regions)) {
+            region.isStriking ??= false;
+          }
+          state.gameState.criticalStabilityMonths ??= 0;
+          state.gameState.isGameOver ??= false;
         }
         return persisted;
       },

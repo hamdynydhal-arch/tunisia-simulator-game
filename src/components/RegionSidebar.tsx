@@ -19,6 +19,7 @@ export default function RegionSidebar() {
   const activeProjects = useGameStore((state) => state.activeProjects);
   const startProject = useGameStore((state) => state.startProject);
   const toggleCrackdown = useGameStore((state) => state.toggleCrackdown);
+  const resolveStrike = useGameStore((state) => state.resolveStrike);
   const populationTrend = useGameStore((state) =>
     state.selectedRegionId
       ? (state.populationTrends[state.selectedRegionId] ?? 0)
@@ -282,6 +283,23 @@ export default function RegionSidebar() {
               🚨 اختراق حدودي بري: احتقان اجتماعي بسبب التدفق غير النظامي
             </p>
           )}
+        </div>
+      )}
+
+      {region.isStriking && (
+        <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3">
+          <p className="text-xs font-semibold text-red-300">
+            🚨 إضراب عام: شلل اقتصادي تام
+          </p>
+          <button
+            type="button"
+            onClick={() => resolveStrike(region.id)}
+            disabled={gameState.totalBudget < 50}
+            title={gameState.totalBudget < 50 ? "الميزانية غير كافية" : undefined}
+            className="mt-2 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+          >
+            مفاوضات نقابية (تكلفة: 50 مليون)
+          </button>
         </div>
       )}
 

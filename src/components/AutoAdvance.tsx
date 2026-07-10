@@ -16,7 +16,11 @@ export default function AutoAdvance() {
   const running = useGameStore((state) => state.timeRunning);
   const speed = useGameStore((state) => state.timeSpeed);
   const frozen = useGameStore((state) =>
-    Boolean(state.gameState.politicalEvent || state.gameState.outcome),
+    Boolean(
+      state.gameState.politicalEvent ||
+        state.gameState.outcome ||
+        state.gameState.isGameOver,
+    ),
   );
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import CompletionToasts from "@/components/CompletionToasts";
 import EventToast from "@/components/EventToast";
 import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
+import GameOverModal from "@/components/GameOverModal";
 import MapPanel from "@/components/MapPanel";
 import OutcomeScreen from "@/components/OutcomeScreen";
 import PoliticalEventModal from "@/components/PoliticalEventModal";
@@ -19,6 +20,7 @@ export default function Home() {
       <PoliticalEventModal />
       <AnalyticsDashboard />
       <OutcomeScreen />
+      <GameOverModal />
       <AutoAdvance />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">

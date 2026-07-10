@@ -84,6 +84,10 @@ export function monthlyRegionIncome(region: Region): number {
   if (region.shadowEconomyLevel > 30 && !region.crackdownActive) {
     return 0;
   }
+  // A general strike halts economic activity outright.
+  if (region.isStriking) {
+    return 0;
+  }
   const employedThousands =
     (region.population / 1_000) * (1 - region.unemploymentRate / 100);
   return (
