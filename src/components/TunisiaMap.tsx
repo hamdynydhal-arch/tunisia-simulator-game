@@ -18,7 +18,6 @@ import { INITIAL_REGIONS } from "@/data/governorates";
 import { getProjectTemplate } from "@/data/projects";
 import { highwayPath, placeZoneProject } from "@/lib/projectPlacement";
 import { REGION_POINTS } from "@/lib/regionPoints";
-import { crisisColor, crisisScore } from "@/lib/economy";
 import { registerMap, unregisterMap } from "@/lib/mapBus";
 import { useGameStore } from "@/store/gameStore";
 import type { Region, RegionId } from "@/types/game";
@@ -53,19 +52,47 @@ function toggleRegion(id: RegionId) {
 }
 
 /**
- * Choropleth style for a governorate: the fill is its live crisis-score
- * color (green→amber→red) at ~30% opacity so the satellite imagery shows
- * through, heavily tinted. Hover and selection change only the STROKE and
- * a slight opacity bump, so the heatmap stays readable in every state.
- * Rebel-held regions keep their normal choropleth fill; the loss of
- * sovereignty is signalled instead by a pulsing dark beacon (see RebelMarkers).
+ * Live heatmap stops: dark red (underdeveloped) → slate/gray (mid-tier) →
+ * dark blue/green (thriving), keyed directly to developmentIndex so the map
+ * itself reads as a development heatmap at a glance.
+ */
+const DEV_HEAT_STOPS: readonly (readonly [number, readonly [number, number, number]])[] = [
+  [0, [127, 29, 29]], // dark red — low, < 30
+  [30, [71, 85, 105]], // slate-600 — medium
+  [75, [6, 78, 59]], // dark emerald — high, > 75
+  [100, [8, 47, 73]], // deep blue-green — very high
+];
+
+function developmentHeatColor(developmentIndex: number): string {
+  const d = Math.min(100, Math.max(0, developmentIndex));
+  for (let i = 0; i < DEV_HEAT_STOPS.length - 1; i++) {
+    const [d0, c0] = DEV_HEAT_STOPS[i];
+    const [d1, c1] = DEV_HEAT_STOPS[i + 1];
+    if (d <= d1 || i === DEV_HEAT_STOPS.length - 2) {
+      const t = d1 === d0 ? 0 : Math.min(1, Math.max(0, (d - d0) / (d1 - d0)));
+      const mix = c0.map((v, k) => Math.round(v + (c1[k] - v) * t));
+      return `rgb(${mix[0]} ${mix[1]} ${mix[2]})`;
+    }
+  }
+  const last = DEV_HEAT_STOPS[DEV_HEAT_STOPS.length - 1][1];
+  return `rgb(${last[0]} ${last[1]} ${last[2]})`;
+}
+
+/**
+ * Choropleth style for a governorate: the fill is a live developmentIndex
+ * heatmap (dark red → slate → dark blue/green) at ~30% opacity so the
+ * satellite imagery shows through, heavily tinted. Hover and selection change
+ * only the STROKE and a slight opacity bump, so the heatmap stays readable in
+ * every state. Rebel-held regions keep their normal choropleth fill; the
+ * loss of sovereignty is signalled instead by a pulsing dark beacon (see
+ * RebelMarkers).
  */
 function styleForRegion(
   region: Region,
   isSelected: boolean,
   isHovered: boolean,
 ): PathOptions {
-  const fillColor = crisisColor(crisisScore(region));
+  const fillColor = developmentHeatColor(region.developmentIndex);
   if (isSelected) {
     return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.42 };
   }
@@ -90,7 +117,19 @@ function GovernorateLayer() {
     layerRef.current?.eachLayer((layer) => {
       const path = layer as Path & { feature?: GovernorateFeature };
       if (path.feature) {
-        path.setStyle(styleFor(path.feature.properties.id));
+        const id = path.feature.properties.id;
+        path.setStyle(styleFor(id));
+        // Live crisis glow: a pulsing red stroke on this specific region's
+        // path while a strike or border infiltration is active there —
+        // geographically visible, not just a badge in a list.
+        const el = path.getElement() as SVGElement | undefined;
+        const region = regions[id];
+        if (el && region) {
+          el.classList.toggle(
+            "crisis-glow",
+            region.isStriking || region.activeInfiltration,
+          );
+        }
       }
     });
   });

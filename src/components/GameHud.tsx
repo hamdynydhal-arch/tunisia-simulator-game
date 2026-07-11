@@ -65,7 +65,9 @@ export default function GameHud() {
           <span className="text-xs text-slate-500">الميزانية العامة</span>
           <span
             className={`text-sm font-semibold tabular-nums ${
-              inDebt ? "text-red-400" : "text-slate-100"
+              inDebt
+                ? "text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]"
+                : "text-slate-100 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]"
             }`}
           >
             {formatMillions(gameState.totalBudget, "TND")}
@@ -80,6 +82,15 @@ export default function GameHud() {
             }`}
           >
             {formatNetFlow(net)}
+          </span>
+        </div>
+        <div
+          className="flex items-baseline gap-2"
+          title="الدين السيادي المتراكم — يرتفع فقط، عبر القروض الطارئة"
+        >
+          <span className="text-xs text-slate-500">الدين السيادي</span>
+          <span className="text-sm font-semibold tabular-nums text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+            {formatMillions(gameState.sovereignDebt, "TND")}
           </span>
         </div>
         <div className="flex items-baseline gap-2">

@@ -59,7 +59,7 @@ export default function RegionSidebar() {
   return (
     <aside
       aria-label={`تفاصيل ولاية ${region.name}`}
-      className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] animate-slide-in-up overflow-y-auto rounded-t-2xl border-t border-slate-700 bg-slate-900/95 p-5 shadow-2xl backdrop-blur md:static md:z-auto md:max-h-none md:w-80 md:shrink-0 md:animate-slide-in-right md:rounded-none md:border-e md:border-t-0"
+      className="fixed inset-x-0 bottom-0 z-10 max-h-[70dvh] animate-slide-in-up overflow-y-auto rounded-t-2xl border-t border-slate-700/50 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-md md:static md:z-auto md:max-h-none md:w-80 md:shrink-0 md:animate-slide-in-right md:rounded-none md:border-e md:border-t-0"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -269,7 +269,7 @@ export default function RegionSidebar() {
                   type="button"
                   onClick={() => toggleCrackdown(region.id)}
                   title="تحذير: يوقف نزيف الجباية، لكنه يفتك برضا المواطنين محليًا مع الوقت وقد يشعل التمرد."
-                  className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-500"
+                  className="mt-3 w-full rounded-lg bg-gradient-to-r from-red-700 to-red-900 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-1 ring-red-500/40 transition-all hover:from-red-600 hover:to-red-800"
                 >
                   إطلاق حملة أمنية لتجفيف المنابع
                 </button>
@@ -304,7 +304,7 @@ export default function RegionSidebar() {
             onClick={() => resolveStrike(region.id)}
             disabled={gameState.totalBudget < 50}
             title={gameState.totalBudget < 50 ? "الميزانية غير كافية" : undefined}
-            className="mt-2 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+            className="mt-2 w-full rounded-lg bg-gradient-to-r from-red-700 to-red-900 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-1 ring-red-500/40 transition-all hover:from-red-600 hover:to-red-800 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
           >
             مفاوضات نقابية (تكلفة: 50 مليون)
           </button>
@@ -312,7 +312,7 @@ export default function RegionSidebar() {
             type="button"
             onClick={() => crackdownStrike(region.id)}
             title="مجاني. ينهي الإضراب فوراً لكنه يدمر الأمن المحلي (-20) ويزيد الاحتقان (-10)، مما قد يشعل تمرداً مسلحاً."
-            className="mt-2 w-full rounded-lg border border-red-500/60 bg-red-950/40 px-4 py-2 text-sm font-bold text-red-300 transition-colors hover:bg-red-950/70"
+            className="mt-2 w-full rounded-lg border border-red-500/60 bg-gradient-to-r from-red-950/60 to-red-900/40 px-4 py-2 text-sm font-bold text-red-300 transition-all hover:from-red-900/70 hover:to-red-800/50"
           >
             كسر الإضراب بالقوة الأمنية
           </button>
@@ -402,7 +402,7 @@ export default function RegionSidebar() {
                               ? undefined
                               : "الأموال غير كافية"
                     }
-                    className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-bold text-white transition-colors hover:bg-emerald-500 active:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                    className="rounded-md bg-gradient-to-r from-emerald-600 to-emerald-800 px-3 py-1 text-xs font-bold text-white shadow shadow-emerald-950/40 transition-all hover:from-emerald-500 hover:to-emerald-700 active:from-emerald-700 active:to-emerald-900 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500"
                   >
                     بناء
                   </button>

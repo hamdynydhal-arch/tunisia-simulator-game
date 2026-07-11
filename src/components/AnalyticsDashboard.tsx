@@ -172,7 +172,7 @@ export default function AnalyticsDashboard() {
         role="dialog"
         aria-modal="true"
         aria-label="لوحة التحليلات الوطنية"
-        className="w-full max-w-3xl animate-slide-in-down rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+        className="w-full max-w-3xl animate-slide-in-down rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 shadow-2xl backdrop-blur-md"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

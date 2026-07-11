@@ -59,7 +59,7 @@ export default function RootLayout({
           content={CONTENT_SECURITY_POLICY}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900">
         <StoreHydrator />
         {children}
       </body>

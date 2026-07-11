@@ -48,10 +48,36 @@
   }
 }
 
+/* Executive Command Center theme: a deep, sophisticated dark gradient
+   instead of a flat fill (Phase 23 premium overhaul). Set directly on the
+   plain `body` rule rather than relying on Tailwind's `bg-gradient-to-br`
+   utility classes, since un-layered CSS here outranks Tailwind's
+   `@layer utilities` regardless of source order. */
 body {
-  background: var(--background);
+  background: linear-gradient(to bottom right, #020617, #111827, #0f172a);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Thin, dark scrollbars everywhere — the premium dashboard aesthetic should
+   hold even inside scrollable panels (RegionSidebar, modal bodies, etc.). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(51 65 85 / 0.8) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(51 65 85 / 0.8);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(71 85 105 / 0.9);
 }
 
 /* Dark-themed governorate name tooltip on the Leaflet map. */
@@ -175,11 +201,26 @@ body {
   }
 }
 
+/* Live heatmap crisis glow: an animated pulsing red stroke on a governorate's
+   own SVG path while a general strike or border infiltration is active there
+   (Phase 23) — geographically visible, not just a badge in a list.
+   Equivalent in intent to `stroke-red-500 stroke-2 animate-pulse`, applied as
+   a dedicated class since Leaflet's vector paths are imperatively-managed DOM
+   nodes, not React elements a className prop can reach per-feature. */
+.crisis-glow {
+  animation: crisis-glow-pulse 1.4s ease-in-out infinite;
+}
+@keyframes crisis-glow-pulse {
+  0%, 100% { stroke: #ef4444; stroke-width: 2px; stroke-opacity: 1; }
+  50% { stroke: #ef4444; stroke-width: 4px; stroke-opacity: 0.55; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .construction-marker .cm-wrap,
   .event-marker--crisis,
   .event-marker--boom,
-  .rebel-marker {
+  .rebel-marker,
+  .crisis-glow {
     animation: none;
   }
 }

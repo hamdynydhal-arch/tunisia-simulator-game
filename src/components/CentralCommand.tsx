@@ -136,7 +136,7 @@ export default function CentralCommand() {
       <div className="mt-4 space-y-3">
         {activeTab === "economy" && (
           <>
-            <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-slate-300">
                   🏛️ البنك المركزي التونسي
@@ -193,7 +193,7 @@ export default function CentralCommand() {
                         ? "احتياطي العملة الصعبة غير كافٍ"
                         : `تحذير (خطر متوسط): يسبب تضخمًا. +${EXCHANGE_CHUNK_TND}م د.ت · -${LIQUIDATION_INFLATION_HIT} مؤشر المقدرة الشرائية`
                   }
-                  className="rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                  className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-950/40 ring-1 ring-amber-500/30 transition-all hover:from-amber-500 hover:to-amber-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
                 >
                   💵 تسييل {EXCHANGE_CHUNK_USD}م $ (خطر متوسط)
                   <span className="mt-0.5 block text-[11px] font-normal text-amber-100/80">
@@ -210,7 +210,7 @@ export default function CentralCommand() {
               )}
             </div>
 
-            <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-slate-300">
                   🏭 الاقتصاد الريعي
@@ -237,10 +237,10 @@ export default function CentralCommand() {
                     ? `الحملة جارية: -${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية شهريًا (انتقام الكارتيلات) مقابل -${ANTI_MONOPOLY_CONTROL_PROGRESS}٪ سيطرة الكارتيلات شهريًا`
                     : `تحذير (خطر مرتفع): إبقاء الوضع كما هو يستنزف -${OLIGARCHY_CORRUPTION_DRAIN_TND}م د.ت أو ${OLIGARCHY_BLEED_RATE_PCT}٪ من العائد الجبائي الوطني شهريًا (أيهما أعلى) طالما السيطرة فوق ${OLIGARCHY_CONTROL_THRESHOLD}٪ — الكارتيلات تكبر مع نجاحك. إطلاق الحملة يوقف النزيف لكن الكارتيلات تنتقم بتهريب البضائع: -${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية شهريًا`
                 }
-                className={`mt-3 w-full rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${
+                className={`mt-3 w-full rounded-lg px-4 py-2.5 text-sm font-bold transition-all ${
                   antiMonopolyActive
                     ? "border border-amber-500/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
-                    : "bg-orange-700 text-white hover:bg-orange-600"
+                    : "bg-gradient-to-r from-orange-600 to-orange-800 text-white shadow-lg shadow-orange-950/40 ring-1 ring-orange-500/30 hover:from-orange-500 hover:to-orange-700"
                 }`}
               >
                 {antiMonopolyActive
@@ -258,7 +258,7 @@ export default function CentralCommand() {
               </button>
             </div>
 
-            <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-slate-300">
                   🏦 الدين السيادي
@@ -279,7 +279,7 @@ export default function CentralCommand() {
         )}
 
         {activeTab === "foreign" && (
-          <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-300">
                 🌍 الاصطفاف الجيوسياسي
@@ -314,7 +314,7 @@ export default function CentralCommand() {
                     ? "صندوق النقد الدولي يرفض التعامل مع دولة مصطفة شرقًا"
                     : `تحذير (خطر متوسط): +${LOAN_AMOUNT_TND}م د.ت فورًا، لكنه يتسبب في انخفاض حاد وفوري في الرضا والاستقرار الوطنيين بسبب التقشف، ويزيد الاصطفاف نحو الغرب +${EMERGENCY_LOAN_ALIGNMENT_SHIFT}`
                 }
-                className="rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-950/40 ring-1 ring-amber-500/30 transition-all hover:from-amber-500 hover:to-amber-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
               >
                 💸 قرض صندوق النقد الدولي (IMF)
                 <span className="mt-0.5 block text-[11px] font-normal text-amber-100/80">
@@ -327,7 +327,7 @@ export default function CentralCommand() {
                 type="button"
                 onClick={takeEasternBlocLoan}
                 title={`تحذير (خطر متوسط): +${LOAN_AMOUNT_TND}م د.ت، بدون تقشف. يحوّل الاصطفاف شرقًا (-${EASTERN_LOAN_ALIGNMENT_SHIFT})، ويثير هروب رساميل غربية (-${EASTERN_LOAN_CAPITAL_FLIGHT_USD}م $ من الاحتياطي)`}
-                className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-rose-200 transition-colors hover:bg-rose-500/20"
+                className="rounded-lg bg-gradient-to-r from-rose-700 to-rose-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-rose-950/40 ring-1 ring-rose-500/30 transition-all hover:from-rose-600 hover:to-rose-800"
               >
                 🐉 قرض المعسكر الشرقي (BRICS)
                 <span className="mt-0.5 block text-[11px] font-normal text-rose-300/80">
@@ -348,7 +348,7 @@ export default function CentralCommand() {
 
         {activeTab === "security" && (
           <>
-            <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
               <h3 className="text-sm font-semibold text-slate-300">
                 🎙️ الحرب الإعلامية
               </h3>
@@ -363,7 +363,7 @@ export default function CentralCommand() {
                       ? "الميزانية غير كافية"
                       : `تحذير (خطر متوسط): يستهلك مصداقية الدولة. التكلفة: ${CAMPAIGN_COST_TND}م د.ت · +${boost} رضا متوقع · -${CREDIBILITY_COST} مصداقية`
                 }
-                className="mt-3 w-full rounded-lg bg-fuchsia-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-fuchsia-600 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                className="mt-3 w-full rounded-lg bg-gradient-to-r from-fuchsia-700 to-fuchsia-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-fuchsia-950/40 ring-1 ring-fuchsia-500/30 transition-all hover:from-fuchsia-600 hover:to-fuchsia-800 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
               >
                 📢 تمويل حملة إعلامية (خطر متوسط)
                 <span className="mt-0.5 block text-[11px] font-normal text-fuchsia-100/80">
@@ -380,7 +380,7 @@ export default function CentralCommand() {
             </div>
 
             {bctIndependence && (
-              <div className="rounded-xl border-2 border-red-600 bg-red-950/30 p-4">
+              <div className="rounded-xl border-2 border-red-600 bg-red-950/30 p-4 shadow-lg shadow-red-950/50 backdrop-blur-md ring-1 ring-red-500/30">
                 <h3 className="text-sm font-semibold text-red-300">
                   ⚠️ منطقة الخطر الأقصى
                 </h3>
@@ -388,7 +388,7 @@ export default function CentralCommand() {
                   type="button"
                   onClick={overrideBCT}
                   title={`تحذير (خطر أقصى): خطوة لا رجعة فيها — تُسقط استقلالية البنك المركزي فورًا وتُلحق ضررًا فادحًا: -${OVERRIDE_CREDIBILITY_HIT} مصداقية الدولة و-${OVERRIDE_STABILITY_HIT} استقرار وطني (انهيار استقرار ضخم)`}
-                  className="mt-3 w-full rounded-lg border-2 border-red-500 bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600"
+                  className="mt-3 w-full rounded-lg bg-gradient-to-r from-red-700 to-red-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-2 ring-red-500/50 transition-all hover:from-red-600 hover:to-red-800"
                 >
                   ⚠️ إسقاط استقلالية البنك المركزي بالقوة (خطر أقصى)
                   <span className="mt-0.5 block text-[11px] font-normal text-red-100/90">
@@ -411,7 +411,7 @@ export default function CentralCommand() {
               </div>
             )}
 
-            <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-slate-300">
                   🎗️ مصداقية الدولة
@@ -431,7 +431,7 @@ export default function CentralCommand() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/20 p-4 text-center">
+            <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/20 p-4 text-center backdrop-blur-md">
               <p className="text-xs text-slate-500">
                 🏗️ قريبًا: سياسات اجتماعية داخلية إضافية
               </p>
