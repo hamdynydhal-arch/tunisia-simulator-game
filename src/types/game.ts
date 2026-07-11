@@ -171,6 +171,14 @@ export interface GameState {
    * wiping reserves and crashing purchasing power/stability/credibility.
    */
   isDefaulted: boolean;
+  /**
+   * العبور التاريخي — the Historical Triumph. A one-way flag set once
+   * sovereignDebt reaches 0, national stability holds at 85+, no region is
+   * striking, and purchasingPowerIndex holds at 60+ simultaneously. Purely a
+   * milestone banner (`VictoryScreen`); unlike `isGameOver` it does not
+   * freeze `advanceTime`.
+   */
+  isVictorious: boolean;
 }
 
 /** How a campaign can end. */

@@ -10,6 +10,7 @@ import MapPanel from "@/components/MapPanel";
 import OutcomeScreen from "@/components/OutcomeScreen";
 import PoliticalEventModal from "@/components/PoliticalEventModal";
 import RegionSidebar from "@/components/RegionSidebar";
+import VictoryScreen from "@/components/VictoryScreen";
 
 export default function Home() {
   return (
@@ -23,6 +24,7 @@ export default function Home() {
       <CrisisCenterModal />
       <OutcomeScreen />
       <GameOverModal />
+      <VictoryScreen />
       <AutoAdvance />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">

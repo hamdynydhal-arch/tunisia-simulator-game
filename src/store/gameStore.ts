@@ -74,6 +74,7 @@ const INITIAL_GAME_STATE: GameState = {
   publicWageBurden: 0,
   debtGracePeriod: 0,
   isDefaulted: false,
+  isVictorious: false,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -178,6 +179,13 @@ const DEFAULT_PURCHASING_POWER_FLOOR = 10;
 /** Flat hit to developmentIndex and securityLevel, mirroring the Union
  *  Crackdown's -30 stability collapse math. */
 const DEFAULT_STABILITY_HIT_PER_FIELD = 15;
+
+/**
+ * Historical Triumph: the legendary win state, checked every tick after all
+ * other calculations. All four conditions must hold simultaneously.
+ */
+const HISTORICAL_TRIUMPH_STABILITY_THRESHOLD = 85;
+const HISTORICAL_TRIUMPH_PURCHASING_POWER_THRESHOLD = 60;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -1422,6 +1430,20 @@ export const useGameStore = create<GameStore>()(
           const isGameOver =
             criticalStabilityMonths >= CRITICAL_STABILITY_MONTHS_LIMIT;
 
+          // Historical Triumph: a one-way milestone banner, checked last
+          // against this tick's fully-settled figures. Never reverts once
+          // achieved, even if a later month slips back under a threshold.
+          const noActiveStrikes = Object.values(regions).every(
+            (region) => !region.isStriking,
+          );
+          const isVictorious =
+            state.gameState.isVictorious ||
+            (state.gameState.sovereignDebt <= 0 &&
+              metrics.stability >= HISTORICAL_TRIUMPH_STABILITY_THRESHOLD &&
+              noActiveStrikes &&
+              nextPurchasingPowerIndex >=
+                HISTORICAL_TRIUMPH_PURCHASING_POWER_THRESHOLD);
+
           const history = [
             ...state.history,
             {
@@ -1468,6 +1490,7 @@ export const useGameStore = create<GameStore>()(
               purchasingPowerIndex: nextPurchasingPowerIndex,
               nationalUnionTruce: nextNationalUnionTruce,
               debtGracePeriod: nextDebtGracePeriod,
+              isVictorious,
             },
             activeProjects: ticked.filter(
               (project) => project.monthsRemaining > 0,
@@ -1504,7 +1527,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 23,
+      version: 24,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1696,6 +1719,12 @@ export const useGameStore = create<GameStore>()(
         if (version < 23) {
           state.gameState.debtGracePeriod ??= 0;
           state.gameState.isDefaulted ??= false;
+        }
+        // v23 → v24: the Historical Triumph. No existing save has already
+        // met the win condition retroactively — it only ever evaluates going
+        // forward, on the next tick.
+        if (version < 24) {
+          state.gameState.isVictorious ??= false;
         }
         return persisted;
       },

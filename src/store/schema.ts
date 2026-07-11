@@ -73,6 +73,7 @@ const gameStateSchema = z.object({
   publicWageBurden: num,
   debtGracePeriod: num,
   isDefaulted: z.boolean(),
+  isVictorious: z.boolean(),
 });
 
 export const persistedStateSchema = z.object({
