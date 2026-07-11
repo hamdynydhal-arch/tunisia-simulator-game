@@ -47,14 +47,24 @@ const EARLY_PAYOFF_DEBT_REDUCTION_TND = 300;
 const DEBT_RESTRUCTURE_GRACE_MONTHS = 12;
 const DEBT_RESTRUCTURE_PENALTY_PCT = 20;
 
-type CommandTab = "economy" | "foreign" | "security" | "internal";
+/** Mirrors gameStore.ts's STRIKE_RESOLUTION_COST_TND (also hardcoded
+ *  locally in RegionSidebar.tsx) for the Radar's own resolve-strike button. */
+const STRIKE_RESOLUTION_COST_TND = 50;
+
+type CommandTab = "economy" | "foreign" | "security" | "internal" | "radar";
 
 const TABS: readonly { key: CommandTab; label: string; icon: string }[] = [
   { key: "economy", label: "الاقتصاد والمالية", icon: "💰" },
   { key: "foreign", label: "السياسة الخارجية", icon: "🌍" },
   { key: "security", label: "الأمن والسيادة", icon: "🛡️" },
   { key: "internal", label: "الداخلية والمجتمع", icon: "🏘️" },
+  { key: "radar", label: "العمليات الجهوية", icon: "📡" },
 ];
+
+/** A region's active security campaign is flagged once it's run this long. */
+const SECURITY_CAMPAIGN_DEADLINE_MONTHS = 3;
+/** A region's strike is flagged once it's run this long. */
+const STRIKE_DEADLINE_MONTHS = 2;
 
 /**
  * The Central Command Room: every global sovereign lever, sorted by domain
@@ -126,6 +136,11 @@ export default function CentralCommand() {
   const declareSovereignDefault = useGameStore(
     (state) => state.declareSovereignDefault,
   );
+  const regions = useGameStore((state) => state.regions);
+  const toggleCrackdown = useGameStore((state) => state.toggleCrackdown);
+  const resolveStrike = useGameStore((state) => state.resolveStrike);
+  const selectRegion = useGameStore((state) => state.selectRegion);
+  const toggleDashboard = useGameStore((state) => state.toggleDashboard);
 
   const boost = Math.max(0, Math.floor(15 * (stateCredibility / 100)));
   const exhausted = stateCredibility <= 0;
@@ -600,6 +615,152 @@ export default function CentralCommand() {
               </div>
             </div>
           </>
+        )}
+
+        {activeTab === "radar" && (
+          <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
+            <h3 className="text-sm font-semibold text-slate-300">
+              📡 رادار العمليات الوطني
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              مراقبة وإدارة كل الولايات الـ24 من مكان واحد — نفس الأزرار
+              والإجراءات المتوفرة في لوحة الولاية المحلية.
+            </p>
+
+            <div className="mt-3 max-h-[28rem] overflow-y-auto rounded-lg border border-slate-700/50">
+              <table className="w-full min-w-[720px] border-collapse text-start text-xs">
+                <thead className="sticky top-0 bg-slate-900/95 backdrop-blur">
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="p-2 text-start font-semibold">الولاية</th>
+                    <th className="p-2 text-start font-semibold">التنمية</th>
+                    <th className="p-2 text-start font-semibold">الأمن</th>
+                    <th className="p-2 text-start font-semibold">
+                      الاقتصاد الموازي
+                    </th>
+                    <th className="p-2 text-start font-semibold">
+                      الأحداث والتنبيهات
+                    </th>
+                    <th className="p-2 text-start font-semibold">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.values(regions)
+                    .sort((a, b) => a.name.localeCompare(b.name, "ar"))
+                    .map((region) => {
+                      const securityDeadlineExceeded =
+                        region.crackdownActive &&
+                        region.securityCampaignMonths >=
+                          SECURITY_CAMPAIGN_DEADLINE_MONTHS;
+                      const strikeDeadlineExceeded =
+                        region.isStriking &&
+                        region.strikeMonths >= STRIKE_DEADLINE_MONTHS;
+                      const strikeResolveDisabled = budget < STRIKE_RESOLUTION_COST_TND;
+                      return (
+                        <tr
+                          key={region.id}
+                          className="border-b border-slate-800 align-top text-slate-200 hover:bg-slate-800/40"
+                        >
+                          <td className="p-2 font-semibold whitespace-nowrap">
+                            {region.name}
+                          </td>
+                          <td className="p-2 tabular-nums">
+                            {Math.round(region.developmentIndex)}
+                          </td>
+                          <td className="p-2 tabular-nums">
+                            {Math.round(region.securityLevel)}
+                          </td>
+                          <td className="p-2 tabular-nums">
+                            {Math.round(region.shadowEconomyLevel)}
+                          </td>
+                          <td className="p-2">
+                            <div className="flex flex-col gap-1">
+                              {region.crackdownActive && (
+                                <span className="w-fit rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                                  حملة أمنية (الشهر {region.securityCampaignMonths}):
+                                  -8 رضا/شهر، -10 اقتصاد موازٍ
+                                </span>
+                              )}
+                              {region.isStriking && (
+                                <span className="w-fit rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                                  إضراب عام (الشهر {region.strikeMonths}): صفر
+                                  عائد جبائي
+                                </span>
+                              )}
+                              {securityDeadlineExceeded && (
+                                <span className="w-fit animate-pulse rounded-full border border-red-500 bg-red-600/20 px-2 py-0.5 text-[11px] font-bold text-red-300">
+                                  ⚠️ تجاوز الأجل (الشهر{" "}
+                                  {region.securityCampaignMonths}): استنزاف
+                                  حاد، التدخل مطلوب فوراً!
+                                </span>
+                              )}
+                              {strikeDeadlineExceeded && (
+                                <span className="w-fit animate-pulse rounded-full border border-red-500 bg-red-600/20 px-2 py-0.5 text-[11px] font-bold text-red-300">
+                                  ⚠️ تجاوز الأجل (الشهر {region.strikeMonths}):
+                                  استنزاف حاد، التدخل مطلوب فوراً!
+                                </span>
+                              )}
+                              {!region.crackdownActive && !region.isStriking && (
+                                <span className="text-slate-600">
+                                  لا أحداث نشطة
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => toggleCrackdown(region.id)}
+                                title={
+                                  region.crackdownActive
+                                    ? "إيقاف الحملة الأمنية الجارية"
+                                    : "تحذير: يوقف نزيف الجباية، لكنه يفتك برضا المواطنين محليًا مع الوقت وقد يشعل التمرد."
+                                }
+                                className={`rounded-md px-2 py-1 text-[11px] font-bold transition-all ${
+                                  region.crackdownActive
+                                    ? "border border-amber-500/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                                    : "bg-gradient-to-r from-orange-600 to-orange-800 text-white shadow shadow-orange-950/40 ring-1 ring-orange-500/30 hover:from-orange-500 hover:to-orange-700"
+                                }`}
+                              >
+                                {region.crackdownActive
+                                  ? "إيقاف الحملة الأمنية"
+                                  : "شن حملة أمنية"}
+                              </button>
+                              {region.isStriking && (
+                                <button
+                                  type="button"
+                                  onClick={() => resolveStrike(region.id)}
+                                  disabled={strikeResolveDisabled}
+                                  title={
+                                    strikeResolveDisabled
+                                      ? "الميزانية غير كافية"
+                                      : `${STRIKE_RESOLUTION_COST_TND}م د.ت · ينهي الإضراب ويرفع الرضا`
+                                  }
+                                  className="rounded-md bg-gradient-to-r from-red-700 to-red-900 px-2 py-1 text-[11px] font-bold text-white shadow shadow-red-950/40 ring-1 ring-red-500/40 transition-all hover:from-red-600 hover:to-red-800 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
+                                >
+                                  حل الإضراب
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  selectRegion(region.id);
+                                  toggleDashboard();
+                                }}
+                                title="فتح لوحة الولاية المحلية للإدارة الدقيقة (المشاريع وغيرها)"
+                                className="rounded-md border border-sky-500/50 bg-sky-500/10 px-2 py-1 text-[11px] font-bold text-sky-200 transition-colors hover:bg-sky-500/20"
+                              >
+                                فتح الولاية
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
     </div>

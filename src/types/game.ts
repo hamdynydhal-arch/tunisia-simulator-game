@@ -305,6 +305,19 @@ export interface Region {
    * resolution (`resolveStrike`); does not clear on its own.
    */
   isStriking: boolean;
+  /**
+   * Consecutive months the current strike has run (0 while not striking).
+   * Feeds the National Radar's Deadline Alert — a strike running >= 2
+   * months is flagged as an urgent, ongoing drain.
+   */
+  strikeMonths: number;
+  /**
+   * Consecutive months the security crackdown (`crackdownActive`) has run
+   * (0 while inactive). Feeds the National Radar's Deadline Alert — a
+   * campaign running >= 3 months is flagged as a "hidden drain" needing
+   * immediate intervention.
+   */
+  securityCampaignMonths: number;
 }
 
 /** Region-level consequences of a completed project. */

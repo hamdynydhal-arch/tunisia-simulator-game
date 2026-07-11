@@ -827,6 +827,7 @@ export const useGameStore = create<GameStore>()(
               [regionId]: {
                 ...region,
                 isStriking: false,
+                strikeMonths: 0,
                 stateSatisfaction: Math.min(
                   100,
                   region.stateSatisfaction + STRIKE_RESOLUTION_SATISFACTION_GAIN,
@@ -846,6 +847,7 @@ export const useGameStore = create<GameStore>()(
               [regionId]: {
                 ...region,
                 isStriking: false,
+                strikeMonths: 0,
                 securityLevel: clampPct(
                   region.securityLevel - STRIKE_CRACKDOWN_SECURITY_HIT,
                 ),
@@ -1415,13 +1417,18 @@ export const useGameStore = create<GameStore>()(
                   ...region,
                   shadowEconomyLevel: Math.max(0, region.shadowEconomyLevel - 10),
                   stateSatisfaction: Math.max(0, region.stateSatisfaction - 8),
+                  securityCampaignMonths: region.securityCampaignMonths + 1,
                 };
               } else if (region.shadowEconomyLevel > 30) {
                 shadowed ??= { ...regions };
                 shadowed[region.id] = {
                   ...region,
                   stateSatisfaction: Math.min(100, region.stateSatisfaction + 2),
+                  securityCampaignMonths: 0,
                 };
+              } else if (region.securityCampaignMonths > 0) {
+                shadowed ??= { ...regions };
+                shadowed[region.id] = { ...region, securityCampaignMonths: 0 };
               }
             }
             if (shadowed) {
@@ -1533,6 +1540,27 @@ export const useGameStore = create<GameStore>()(
             }
             if (struck) {
               regions = struck;
+            }
+          }
+
+          // Strike duration tracking, for the National Radar's Deadline
+          // Alert: every consecutive month a region stays on strike —
+          // including the very month it just started, above — increments
+          // strikeMonths. It resets to 0 the instant `resolveStrike` or
+          // `crackdownStrike` clears `isStriking` (see those actions).
+          {
+            let withDuration: Record<RegionId, Region> | null = null;
+            for (const region of Object.values(regions)) {
+              if (region.isStriking) {
+                withDuration ??= { ...regions };
+                withDuration[region.id] = {
+                  ...region,
+                  strikeMonths: region.strikeMonths + 1,
+                };
+              }
+            }
+            if (withDuration) {
+              regions = withDuration;
             }
           }
 
@@ -1815,7 +1843,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 25,
+      version: 26,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -2028,6 +2056,17 @@ export const useGameStore = create<GameStore>()(
           state.gameState.difficulty ??= "normal";
           state.gameState.hasCompletedTutorial ??= true;
           state.gameState.gameStarted ??= true;
+        }
+        // v25 → v26: the National Radar's Deadline Alert duration counters.
+        // A region already mid-strike or mid-crackdown at migration time has
+        // no recoverable true duration, so both start at 0 rather than
+        // guessing — worst case the alert takes a couple of extra months to
+        // first fire for an already-ongoing operation, which is harmless.
+        if (version < 26) {
+          for (const region of Object.values(state.regions)) {
+            region.strikeMonths ??= 0;
+            region.securityCampaignMonths ??= 0;
+          }
         }
         return persisted;
       },

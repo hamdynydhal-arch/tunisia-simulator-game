@@ -33,6 +33,8 @@ const regionSchema = z.object({
   activeHarka: z.boolean(),
   activeInfiltration: z.boolean(),
   isStriking: z.boolean(),
+  strikeMonths: num,
+  securityCampaignMonths: num,
 });
 
 const activeProjectSchema = z.object({

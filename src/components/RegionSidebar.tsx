@@ -4,6 +4,11 @@ import { useGameStore } from "@/store/gameStore";
 import { PROJECT_TEMPLATES, getProjectTemplate } from "@/data/projects";
 import { formatMillions, formatMonths, formatNumber } from "@/lib/format";
 
+/** Mirrors CentralCommand.tsx's National Radar deadline thresholds, so both
+ *  surfaces flag the same ongoing operation as an urgent, hidden drain. */
+const SECURITY_CAMPAIGN_DEADLINE_MONTHS = 3;
+const STRIKE_DEADLINE_MONTHS = 2;
+
 /**
  * Placeholder detail panel for the selected governorate.
  * Renders as a bottom sheet on mobile; on desktop it is a static column at
@@ -244,9 +249,16 @@ export default function RegionSidebar() {
             {region.crackdownActive ? (
               <>
                 <p className="mt-2 text-xs text-amber-300">
-                  ⚠️ حملة أمنية جارية: الاقتصاد الموازي يتراجع لكن رضا
-                  المواطنين ينهار شهريًا.
+                  ⚠️ حملة أمنية جارية (الشهر {region.securityCampaignMonths}):
+                  الاقتصاد الموازي يتراجع لكن رضا المواطنين ينهار شهريًا.
                 </p>
+                {region.securityCampaignMonths >=
+                  SECURITY_CAMPAIGN_DEADLINE_MONTHS && (
+                  <p className="mt-2 animate-pulse rounded-lg border border-red-500 bg-red-600/20 px-3 py-2 text-xs font-bold text-red-300">
+                    ⚠️ تجاوز الأجل (الشهر {region.securityCampaignMonths}):
+                    استنزاف حاد، التدخل مطلوب فوراً!
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => toggleCrackdown(region.id)}
@@ -295,8 +307,14 @@ export default function RegionSidebar() {
       {region.isStriking && (
         <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3">
           <p className="text-xs font-semibold text-red-300">
-            🚨 إضراب عام: شلل اقتصادي تام
+            🚨 إضراب عام (الشهر {region.strikeMonths}): شلل اقتصادي تام
           </p>
+          {region.strikeMonths >= STRIKE_DEADLINE_MONTHS && (
+            <p className="mt-2 animate-pulse rounded-lg border border-red-500 bg-red-600/30 px-3 py-2 text-xs font-bold text-red-200">
+              ⚠️ تجاوز الأجل (الشهر {region.strikeMonths}): استنزاف حاد،
+              التدخل مطلوب فوراً!
+            </p>
+          )}
           <button
             type="button"
             onClick={() => resolveStrike(region.id)}
