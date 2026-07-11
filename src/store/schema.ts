@@ -79,6 +79,8 @@ const gameStateSchema = z.object({
   playerName: z.string(),
   partyName: z.string(),
   slogan: z.string(),
+  presidentAvatar: z.string().nullable(),
+  philosophySymbol: z.string(),
   difficulty: z.enum(["easy", "normal", "hard"]),
   hasCompletedTutorial: z.boolean(),
   gameStarted: z.boolean(),

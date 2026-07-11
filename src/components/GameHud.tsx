@@ -4,6 +4,25 @@ import { useMemo } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { computeMonthlyFinances, computeNationalMetrics } from "@/lib/economy";
 import { formatGameDate, formatMillions, formatNetFlow } from "@/lib/format";
+import type { Difficulty } from "@/types/game";
+
+const DIFFICULTY_BADGE: Record<
+  Difficulty,
+  { label: string; className: string }
+> = {
+  easy: {
+    label: "مسار شعبوي",
+    className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+  },
+  normal: {
+    label: "حكومة تكنوقراط",
+    className: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+  },
+  hard: {
+    label: "رجل دولة",
+    className: "border-red-500/40 bg-red-500/15 text-red-300",
+  },
+};
 
 /** Top bar showing the global game state, plus the end-turn action. */
 export default function GameHud() {
@@ -55,18 +74,43 @@ export default function GameHud() {
         </div>
       )}
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <div className="me-auto">
+        <div className="me-auto flex items-center gap-3">
           {gameState.playerName || gameState.partyName ? (
             <>
-              <h1 className="text-base font-semibold tracking-wide text-slate-100">
-                الرئيس: {gameState.playerName}
-                {gameState.partyName && ` | ${gameState.partyName}`}
-              </h1>
-              {gameState.slogan && (
-                <p className="text-xs italic text-slate-500">
-                  {gameState.slogan}
-                </p>
+              {gameState.presidentAvatar ? (
+                <img
+                  src={gameState.presidentAvatar}
+                  alt={gameState.playerName}
+                  className="h-14 w-14 rounded-full border-2 border-slate-400 object-cover"
+                />
+              ) : (
+                <div
+                  role="img"
+                  aria-label="لا توجد صورة للرئيس"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-slate-400 bg-slate-800 text-2xl"
+                >
+                  👤
+                </div>
               )}
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-base font-semibold tracking-wide text-slate-100">
+                    الرئيس: {gameState.playerName}
+                    {gameState.partyName && ` | ${gameState.partyName}`}
+                  </h1>
+                  <span
+                    title="مستوى الصعوبة المختار عند التنصيب"
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${DIFFICULTY_BADGE[gameState.difficulty].className}`}
+                  >
+                    {DIFFICULTY_BADGE[gameState.difficulty].label}
+                  </span>
+                </div>
+                {gameState.slogan && (
+                  <p className="text-xs italic text-slate-500">
+                    {gameState.philosophySymbol} {gameState.slogan}
+                  </p>
+                )}
+              </div>
             </>
           ) : (
             <h1 className="text-base font-semibold tracking-wide text-slate-100">

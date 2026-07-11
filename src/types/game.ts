@@ -183,6 +183,18 @@ export interface GameState {
   playerName: string;
   partyName: string;
   slogan: string;
+  /**
+   * Base64 data URL of the president's uploaded portrait, pre-resized to
+   * ~128x128 client-side before storage. `null` if never uploaded (or if
+   * the upload/resize failed) — the HUD falls back to a placeholder.
+   */
+  presidentAvatar: string | null;
+  /**
+   * The chosen "Philosophy Symbol" emoji accompanying the slogan (e.g. 👊
+   * Iron Fist, 🌹 Social/Democrat, ⚔️ Militaristic, ⚖️ Technocrat/Justice,
+   * 🦅 Sovereignist). Purely cosmetic — does not affect any game math.
+   */
+  philosophySymbol: string;
   /** Starting-conditions tier chosen at The Inauguration; applied once by
    *  `startGame` and otherwise inert (does not affect ongoing math). */
   difficulty: Difficulty;

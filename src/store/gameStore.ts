@@ -78,6 +78,8 @@ const INITIAL_GAME_STATE: GameState = {
   playerName: "",
   partyName: "",
   slogan: "",
+  presidentAvatar: null,
+  philosophySymbol: "🇹🇳",
   difficulty: "normal",
   hasCompletedTutorial: false,
   gameStarted: false,
@@ -480,16 +482,19 @@ interface GameStore {
   /** Wipes the campaign back to the initial state. */
   resetGame: () => void;
   /**
-   * Completes The Inauguration: sets the player's persona, applies the
-   * chosen difficulty tier's starting-conditions overrides (budget, hard
-   * currency, sovereignDebt, shadowEconomyLevel — see the EASY_ and HARD_
-   * constants), and sets `gameStarted = true`, dismissing `GameSetupModal`.
+   * Completes The Inauguration: sets the player's persona (including the
+   * optional avatar and philosophy symbol), applies the chosen difficulty
+   * tier's starting-conditions overrides (budget, hard currency,
+   * sovereignDebt, shadowEconomyLevel — see the EASY_ and HARD_ constants),
+   * and sets `gameStarted = true`, dismissing `GameSetupModal`.
    */
   startGame: (
     playerName: string,
     partyName: string,
     slogan: string,
     difficulty: Difficulty,
+    presidentAvatar: string | null,
+    philosophySymbol: string,
   ) => void;
   /** Marks the onboarding bubble tutorial as seen, dismissing `TutorialOverlay`. */
   completeTutorial: () => void;
@@ -1781,7 +1786,14 @@ export const useGameStore = create<GameStore>()(
           crisisCenterOpen: false,
         }),
 
-      startGame: (playerName, partyName, slogan, difficulty) =>
+      startGame: (
+        playerName,
+        partyName,
+        slogan,
+        difficulty,
+        presidentAvatar,
+        philosophySymbol,
+      ) =>
         set((state) => {
           const clampPct = (v: number) => Math.min(100, Math.max(0, v));
           let regions = state.regions;
@@ -1826,6 +1838,8 @@ export const useGameStore = create<GameStore>()(
               playerName,
               partyName,
               slogan,
+              presidentAvatar,
+              philosophySymbol,
               difficulty,
               gameStarted: true,
             },
@@ -1843,7 +1857,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 26,
+      version: 27,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -2067,6 +2081,12 @@ export const useGameStore = create<GameStore>()(
             region.strikeMonths ??= 0;
             region.securityCampaignMonths ??= 0;
           }
+        }
+        // v26 → v27: The Presidential Identity. No existing save has an
+        // uploaded avatar; philosophy symbol defaults to the neutral flag.
+        if (version < 27) {
+          state.gameState.presidentAvatar ??= null;
+          state.gameState.philosophySymbol ??= "🇹🇳";
         }
         return persisted;
       },

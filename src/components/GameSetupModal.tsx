@@ -1,8 +1,69 @@
 "use client";
 
 import { useState } from "react";
+import type { ChangeEvent } from "react";
 import { useGameStore } from "@/store/gameStore";
 import type { Difficulty } from "@/types/game";
+
+/** Target side, in pixels, for the resized avatar — small enough to keep
+ *  the Base64 string out of localStorage-quota trouble. */
+const AVATAR_SIZE_PX = 128;
+
+const PHILOSOPHY_SYMBOLS: readonly { emoji: string; label: string }[] = [
+  { emoji: "👊", label: "قبضة حديدية" },
+  { emoji: "🌹", label: "اجتماعي ديمقراطي" },
+  { emoji: "⚔️", label: "عسكري" },
+  { emoji: "⚖️", label: "تكنوقراط/عدالة" },
+  { emoji: "🦅", label: "سيادي" },
+];
+
+/**
+ * Reads an uploaded image, center-crops it to a square, and resizes it to
+ * AVATAR_SIZE_PX via an off-screen canvas, returning a JPEG data URL. Every
+ * failure path (unreadable file, decode error, canvas unavailable) resolves
+ * `null` instead of throwing, so the caller can silently fall back to the
+ * placeholder rather than crash the setup wizard over a bad image.
+ */
+function resizeImageToDataUrl(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const reader = new FileReader();
+      reader.onerror = () => resolve(null);
+      reader.onload = () => {
+        try {
+          const img = new Image();
+          img.onerror = () => resolve(null);
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = AVATAR_SIZE_PX;
+              canvas.height = AVATAR_SIZE_PX;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) {
+                resolve(null);
+                return;
+              }
+              // Center-crop to a square first so portraits aren't squashed.
+              const side = Math.min(img.width, img.height);
+              const sx = (img.width - side) / 2;
+              const sy = (img.height - side) / 2;
+              ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE_PX, AVATAR_SIZE_PX);
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            } catch {
+              resolve(null);
+            }
+          };
+          img.src = String(reader.result);
+        } catch {
+          resolve(null);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      resolve(null);
+    }
+  });
+}
 
 // The 33-66-99 scaling: each tier's absolute values, mirroring gameStore.ts's
 // EASY_*/HARD_* starting-conditions constants (display copy only).
@@ -97,6 +158,26 @@ export default function GameSetupModal() {
   const [partyName, setPartyName] = useState("");
   const [slogan, setSlogan] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+  const [philosophySymbol, setPhilosophySymbol] = useState(
+    PHILOSOPHY_SYMBOLS[0].emoji,
+  );
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // allow re-selecting the same file later
+    if (!file) {
+      return;
+    }
+    setAvatarError(false);
+    const resized = await resizeImageToDataUrl(file);
+    if (resized) {
+      setAvatar(resized);
+    } else {
+      setAvatarError(true);
+    }
+  };
 
   if (gameStarted) {
     return null;
@@ -134,6 +215,37 @@ export default function GameSetupModal() {
               من أنت أيها الرئيس القادم؟
             </p>
             <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-4">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="صورة الرئيس"
+                    className="h-16 w-16 rounded-full border-2 border-slate-500 object-cover"
+                  />
+                ) : (
+                  <div
+                    role="img"
+                    aria-label="لا توجد صورة"
+                    className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-600 bg-slate-800/60 text-2xl text-slate-500"
+                  >
+                    👤
+                  </div>
+                )}
+                <label className="cursor-pointer rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800">
+                  {avatar ? "تغيير الصورة" : "رفع صورة شخصية (اختياري)"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {avatarError && (
+                <p className="text-xs font-semibold text-red-400">
+                  تعذر تحميل الصورة — جرّب صورة أخرى.
+                </p>
+              )}
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-slate-400">
                   اسم الرئيس
@@ -170,6 +282,34 @@ export default function GameSetupModal() {
                   className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500/50"
                 />
               </label>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-slate-400">
+                  الرمز الفكري
+                </span>
+                <div
+                  role="radiogroup"
+                  aria-label="الرمز الفكري"
+                  className="grid grid-cols-5 gap-2"
+                >
+                  {PHILOSOPHY_SYMBOLS.map((symbol) => (
+                    <button
+                      key={symbol.emoji}
+                      type="button"
+                      role="radio"
+                      aria-checked={philosophySymbol === symbol.emoji}
+                      title={symbol.label}
+                      onClick={() => setPhilosophySymbol(symbol.emoji)}
+                      className={`rounded-lg border p-2 text-xl transition-all ${
+                        philosophySymbol === symbol.emoji
+                          ? "border-sky-500 bg-sky-500/10 ring-1 ring-sky-500/50"
+                          : "border-slate-700 bg-slate-800/40 hover:bg-slate-800/70"
+                      }`}
+                    >
+                      {symbol.emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <button
               type="button"
@@ -323,6 +463,8 @@ export default function GameSetupModal() {
                     partyName.trim(),
                     slogan.trim(),
                     difficulty,
+                    avatar,
+                    philosophySymbol,
                   )
                 }
                 className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/50 ring-1 ring-emerald-500/40 transition-all hover:from-emerald-500 hover:to-emerald-700"
