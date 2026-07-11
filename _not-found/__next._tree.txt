@@ -1,2 +1,2 @@
-:HL["/tunisia-simulator-game/_next/static/chunks/375dy5pn5p5zf.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"E4Nrq-EkFy3Ax4qEX1lVm"}
+:HL["/tunisia-simulator-game/_next/static/chunks/2fuvydg7ttbfc.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"nxr-107EG25-OCTUT-f5w"}

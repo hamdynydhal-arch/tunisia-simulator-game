@@ -2,4 +2,4 @@
 2:I[39756,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/11o_xd5u433kx.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
 3:I[37457,["/tunisia-simulator-game/_next/static/chunks/0i1uk-zwf3e51.js","/tunisia-simulator-game/_next/static/chunks/11o_xd5u433kx.js","/tunisia-simulator-game/_next/static/chunks/158myu8e_yme3.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"E4Nrq-EkFy3Ax4qEX1lVm"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"nxr-107EG25-OCTUT-f5w"}
