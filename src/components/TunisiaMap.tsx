@@ -52,39 +52,25 @@ function toggleRegion(id: RegionId) {
 }
 
 /**
- * Live heatmap stops: dark red (underdeveloped) → slate/gray (mid-tier) →
- * dark blue/green (thriving), keyed directly to developmentIndex so the map
- * itself reads as a development heatmap at a glance.
+ * Live heatmap tiers keyed directly to developmentIndex, as plain hex strings
+ * fed straight into Leaflet's `fillColor` path option. Leaflet's SVG renderer
+ * sets `fill`/`fill-opacity` as presentation attributes on the path node —
+ * it never reads Tailwind utility classes — so this must stay a real
+ * color string, not a className, or every governorate renders unfilled.
  */
-const DEV_HEAT_STOPS: readonly (readonly [number, readonly [number, number, number]])[] = [
-  [0, [127, 29, 29]], // dark red — low, < 30
-  [30, [71, 85, 105]], // slate-600 — medium
-  [75, [6, 78, 59]], // dark emerald — high, > 75
-  [100, [8, 47, 73]], // deep blue-green — very high
-];
-
 function developmentHeatColor(developmentIndex: number): string {
-  const d = Math.min(100, Math.max(0, developmentIndex));
-  for (let i = 0; i < DEV_HEAT_STOPS.length - 1; i++) {
-    const [d0, c0] = DEV_HEAT_STOPS[i];
-    const [d1, c1] = DEV_HEAT_STOPS[i + 1];
-    if (d <= d1 || i === DEV_HEAT_STOPS.length - 2) {
-      const t = d1 === d0 ? 0 : Math.min(1, Math.max(0, (d - d0) / (d1 - d0)));
-      const mix = c0.map((v, k) => Math.round(v + (c1[k] - v) * t));
-      return `rgb(${mix[0]} ${mix[1]} ${mix[2]})`;
-    }
-  }
-  const last = DEV_HEAT_STOPS[DEV_HEAT_STOPS.length - 1][1];
-  return `rgb(${last[0]} ${last[1]} ${last[2]})`;
+  if (developmentIndex >= 75) return "#0ea5e9"; // sky blue — thriving
+  if (developmentIndex >= 50) return "#f59e0b"; // amber — mid-tier
+  return "#ef4444"; // red — underdeveloped
 }
 
 /**
  * Choropleth style for a governorate: the fill is a live developmentIndex
- * heatmap (dark red → slate → dark blue/green) at ~30% opacity so the
- * satellite imagery shows through, heavily tinted. Hover and selection change
- * only the STROKE and a slight opacity bump, so the heatmap stays readable in
- * every state. Rebel-held regions keep their normal choropleth fill; the
- * loss of sovereignty is signalled instead by a pulsing dark beacon (see
+ * heatmap (red → amber → sky blue) at high opacity so it reads clearly
+ * against the satellite basemap. Hover and selection change only the STROKE
+ * and a slight opacity bump, so the heatmap stays readable in every state.
+ * Rebel-held regions keep their normal choropleth fill; the loss of
+ * sovereignty is signalled instead by a pulsing dark beacon (see
  * RebelMarkers).
  */
 function styleForRegion(
@@ -94,12 +80,12 @@ function styleForRegion(
 ): PathOptions {
   const fillColor = developmentHeatColor(region.developmentIndex);
   if (isSelected) {
-    return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.42 };
+    return { color: "#34d399", weight: 3, opacity: 1, fillColor, fillOpacity: 0.7 };
   }
   if (isHovered) {
-    return { color: "#fbbf24", weight: 2.5, opacity: 1, fillColor, fillOpacity: 0.4 };
+    return { color: "#fbbf24", weight: 2.5, opacity: 1, fillColor, fillOpacity: 0.65 };
   }
-  return { color: "#f8fafc", weight: 1, opacity: 0.7, fillColor, fillOpacity: 0.3 };
+  return { color: "#f8fafc", weight: 1, opacity: 0.7, fillColor, fillOpacity: 0.6 };
 }
 
 function GovernorateLayer() {
@@ -188,13 +174,13 @@ const PROJECT_STYLE: Record<string, { glyph: string; category: string }> = {
   "regional-hospital": { glyph: "\u{1F3E5}", category: "health" },
   highway: { glyph: "\u{1F6E3}\u{FE0F}", category: "transport" },
   "industrial-zone": { glyph: "\u{1F3ED}", category: "economy" },
-  "commercial-port": { glyph: "\u2693", category: "economy" },
+  "commercial-port": { glyph: "⚓", category: "economy" },
   "desalination-plant": { glyph: "\u{1F4A7}", category: "water" },
   "archaeological-restoration": { glyph: "\u{1F3DB}\u{FE0F}", category: "heritage" },
   "livestock-program": { glyph: "\u{1F411}", category: "economy" },
   "school-network": { glyph: "\u{1F3EB}", category: "knowledge" },
   university: { glyph: "\u{1F393}", category: "knowledge" },
-  airport: { glyph: "\u2708\u{FE0F}", category: "transport" },
+  airport: { glyph: "✈\u{FE0F}", category: "transport" },
   "defense-base": { glyph: "\u{1F6E1}\u{FE0F}", category: "security" },
   "tech-hub": { glyph: "\u{1F4BB}", category: "knowledge" },
 };
