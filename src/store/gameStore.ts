@@ -72,6 +72,8 @@ const INITIAL_GAME_STATE: GameState = {
   geopoliticalAlignment: 50,
   nationalUnionTruce: 0,
   publicWageBurden: 0,
+  debtGracePeriod: 0,
+  isDefaulted: false,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -153,6 +155,29 @@ const UNION_CRACKDOWN_TRUCE_MONTHS = 36;
  *  immediate, violent stability collapse (no payroll cost, unlike the two
  *  pacts above). */
 const UNION_CRACKDOWN_STABILITY_HIT_PER_FIELD = 15;
+
+/**
+ * Sovereign Debt Servicing: automated monthly interest/principal payments
+ * once any debt exists, plus three strategic scenarios (early payoff,
+ * restructuring, and outright default) to manage it.
+ */
+/** Share of outstanding sovereignDebt bled from the budget every month. */
+const DEBT_SERVICE_RATE = 0.02;
+/** Debt service never falls below this floor, million TND. */
+const DEBT_SERVICE_MIN_TND = 10;
+/** Early payoff: hard-currency cost and matching debt reduction. */
+const EARLY_PAYOFF_USD_COST = 100;
+const EARLY_PAYOFF_DEBT_REDUCTION_TND = 300;
+const EARLY_PAYOFF_CREDIBILITY_BOOST = 15;
+/** Restructuring: months of suspended debt service, at a compounding cost. */
+const DEBT_RESTRUCTURE_GRACE_MONTHS = 12;
+const DEBT_RESTRUCTURE_PENALTY_MULTIPLIER = 1.2;
+/** Default: halves the debt outright, at a catastrophic macro cost. */
+const DEFAULT_DEBT_REDUCTION_RATE = 0.5;
+const DEFAULT_PURCHASING_POWER_FLOOR = 10;
+/** Flat hit to developmentIndex and securityLevel, mirroring the Union
+ *  Crackdown's -30 stability collapse math. */
+const DEFAULT_STABILITY_HIT_PER_FIELD = 15;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -321,6 +346,26 @@ interface GameStore {
    * 0. No-op if a truce is already running.
    */
   launchUnionCrackdown: () => void;
+  /**
+   * Pays down 300M TND of sovereignDebt for 100M USD from hardCurrency
+   * reserves and boosts stateCredibility +15 (clamped 100). No-op if
+   * reserves are short of the 100M USD cost.
+   */
+  payDebtEarly: () => void;
+  /**
+   * Suspends automated monthly debt servicing for 12 months
+   * (`debtGracePeriod`), at the cost of compounding sovereignDebt by 20%
+   * (floored) immediately. No-op while a grace period is already running.
+   */
+  restructureDebt: () => void;
+  /**
+   * The Nuclear Option: declares sovereign default, halving sovereignDebt
+   * outright. Wipes hardCurrency to 0, crashes purchasingPowerIndex to 10,
+   * drops stateCredibility to 0, and collapses stability via a flat -15 hit
+   * to every region's developmentIndex and securityLevel (both clamped
+   * 0-100). Sets the one-way `isDefaulted` flag; no-op if already defaulted.
+   */
+  declareSovereignDefault: () => void;
   /**
    * Liquidates `usdAmount` of hard-currency reserves at the Central Bank's
    * fixed 1:3 rate (USD→TND), scaling the inflation hit proportionally
@@ -804,6 +849,76 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      payDebtEarly: () =>
+        set((state) => {
+          if (state.gameState.hardCurrency < EARLY_PAYOFF_USD_COST) {
+            return state;
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              hardCurrency: state.gameState.hardCurrency - EARLY_PAYOFF_USD_COST,
+              sovereignDebt: Math.max(
+                0,
+                state.gameState.sovereignDebt - EARLY_PAYOFF_DEBT_REDUCTION_TND,
+              ),
+              stateCredibility: Math.min(
+                100,
+                state.gameState.stateCredibility + EARLY_PAYOFF_CREDIBILITY_BOOST,
+              ),
+            },
+          };
+        }),
+
+      restructureDebt: () =>
+        set((state) => {
+          if (state.gameState.debtGracePeriod > 0) {
+            return state;
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              debtGracePeriod: DEBT_RESTRUCTURE_GRACE_MONTHS,
+              sovereignDebt: Math.floor(
+                state.gameState.sovereignDebt * DEBT_RESTRUCTURE_PENALTY_MULTIPLIER,
+              ),
+            },
+          };
+        }),
+
+      declareSovereignDefault: () =>
+        set((state) => {
+          if (state.gameState.isDefaulted) {
+            return state;
+          }
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            regions[region.id] = {
+              ...region,
+              developmentIndex: clampPct(
+                region.developmentIndex - DEFAULT_STABILITY_HIT_PER_FIELD,
+              ),
+              securityLevel: clampPct(
+                region.securityLevel - DEFAULT_STABILITY_HIT_PER_FIELD,
+              ),
+            };
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              isDefaulted: true,
+              sovereignDebt: Math.floor(
+                state.gameState.sovereignDebt * (1 - DEFAULT_DEBT_REDUCTION_RATE),
+              ),
+              hardCurrency: 0,
+              purchasingPowerIndex: DEFAULT_PURCHASING_POWER_FLOOR,
+              stateCredibility: 0,
+            },
+            regions,
+          };
+        }),
+
       exchangeUsdToTnd: (usdAmount) => {
         const { gameState } = get();
         if (
@@ -969,6 +1084,21 @@ export const useGameStore = create<GameStore>()(
             0,
             state.gameState.nationalUnionTruce - 1,
           );
+
+          // Sovereign Debt Servicing: while a restructuring grace period is
+          // running, it just ticks down and no service is charged. Otherwise,
+          // any outstanding debt bleeds 2% of itself (10M TND floor) from the
+          // budget every month, automatically.
+          let nextDebtGracePeriod = 0;
+          let debtServiceDelta = 0;
+          if (state.gameState.debtGracePeriod > 0) {
+            nextDebtGracePeriod = state.gameState.debtGracePeriod - 1;
+          } else if (state.gameState.sovereignDebt > 0) {
+            debtServiceDelta = -Math.max(
+              DEBT_SERVICE_MIN_TND,
+              Math.floor(state.gameState.sovereignDebt * DEBT_SERVICE_RATE),
+            );
+          }
 
           // Finances for the elapsing month, from the pre-tick state.
           const { income, net, hardCurrencyNet } = computeMonthlyFinances(
@@ -1253,7 +1383,8 @@ export const useGameStore = create<GameStore>()(
             eventBudgetChange +
             political.budgetDelta +
             oligarchyBudgetDelta -
-            state.gameState.publicWageBurden;
+            state.gameState.publicWageBurden +
+            debtServiceDelta;
           // Exports renew reserves; advanced-project USD upkeep drains them.
           // Harka exits add their own diplomatic-friction drain on top.
           const nextHardCurrency =
@@ -1336,6 +1467,7 @@ export const useGameStore = create<GameStore>()(
               oligarchyControl: nextOligarchyControl,
               purchasingPowerIndex: nextPurchasingPowerIndex,
               nationalUnionTruce: nextNationalUnionTruce,
+              debtGracePeriod: nextDebtGracePeriod,
             },
             activeProjects: ticked.filter(
               (project) => project.monthsRemaining > 0,
@@ -1372,7 +1504,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 22,
+      version: 23,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1558,6 +1690,12 @@ export const useGameStore = create<GameStore>()(
         if (version < 22) {
           state.gameState.nationalUnionTruce ??= 0;
           state.gameState.publicWageBurden ??= 0;
+        }
+        // v22 → v23: Sovereign Debt Servicing. No grace period running, no
+        // default declared yet — existing sovereignDebt carries over as-is.
+        if (version < 23) {
+          state.gameState.debtGracePeriod ??= 0;
+          state.gameState.isDefaulted ??= false;
         }
         return persisted;
       },

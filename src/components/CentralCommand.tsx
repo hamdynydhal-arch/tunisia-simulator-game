@@ -41,6 +41,12 @@ const TOTAL_SUBMISSION_WAGE_BURDEN_TND = 120;
 const UNION_CRACKDOWN_TRUCE_MONTHS = 36;
 const UNION_CRACKDOWN_STABILITY_HIT = 30;
 
+const DEBT_SERVICE_RATE_PCT = 2;
+const EARLY_PAYOFF_USD_COST = 100;
+const EARLY_PAYOFF_DEBT_REDUCTION_TND = 300;
+const DEBT_RESTRUCTURE_GRACE_MONTHS = 12;
+const DEBT_RESTRUCTURE_PENALTY_PCT = 20;
+
 type CommandTab = "economy" | "foreign" | "security" | "internal";
 
 const TABS: readonly { key: CommandTab; label: string; icon: string }[] = [
@@ -111,6 +117,15 @@ export default function CentralCommand() {
   const launchUnionCrackdown = useGameStore(
     (state) => state.launchUnionCrackdown,
   );
+  const debtGracePeriod = useGameStore(
+    (state) => state.gameState.debtGracePeriod,
+  );
+  const isDefaulted = useGameStore((state) => state.gameState.isDefaulted);
+  const payDebtEarly = useGameStore((state) => state.payDebtEarly);
+  const restructureDebt = useGameStore((state) => state.restructureDebt);
+  const declareSovereignDefault = useGameStore(
+    (state) => state.declareSovereignDefault,
+  );
 
   const boost = Math.max(0, Math.floor(15 * (stateCredibility / 100)));
   const exhausted = stateCredibility <= 0;
@@ -130,6 +145,8 @@ export default function CentralCommand() {
 
   const monthsToCollapse = 3 - criticalStabilityMonths;
   const unionTruceActive = nationalUnionTruce > 0;
+  const debtGraceActive = debtGracePeriod > 0;
+  const earlyPayoffDisabled = hardCurrency < EARLY_PAYOFF_USD_COST;
 
   return (
     <div>
@@ -303,6 +320,7 @@ export default function CentralCommand() {
         )}
 
         {activeTab === "foreign" && (
+          <>
           <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-300">
@@ -368,6 +386,73 @@ export default function CentralCommand() {
               </p>
             )}
           </div>
+
+          <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
+            <h3 className="text-sm font-semibold text-slate-300">
+              🏦 إدارة الدين السيادي
+            </h3>
+            <p
+              className={`mt-1 text-xs font-semibold ${
+                debtGraceActive ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {debtGraceActive
+                ? `فترة سماح: ${debtGracePeriod} أشهر متبقية`
+                : `خدمة الدين: اقتطاع شهري آلي (-${DEBT_SERVICE_RATE_PCT}% من إجمالي الدين)`}
+            </p>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={payDebtEarly}
+                disabled={earlyPayoffDisabled}
+                title={
+                  earlyPayoffDisabled
+                    ? "احتياطي العملة الصعبة غير كافٍ"
+                    : `دفع ${EARLY_PAYOFF_USD_COST}M دولار لخفض ${EARLY_PAYOFF_DEBT_REDUCTION_TND}M د.ت من الدين ورفع المصداقية.`
+                }
+                className="rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                💵 سداد مبكر ({EARLY_PAYOFF_USD_COST}M$)
+                <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
+                  -{EARLY_PAYOFF_USD_COST}م $ · -{EARLY_PAYOFF_DEBT_REDUCTION_TND}م
+                  د.ت دين · +مصداقية
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={restructureDebt}
+                disabled={debtGraceActive}
+                title={
+                  debtGraceActive
+                    ? "فترة سماح جارية بالفعل"
+                    : `إيقاف خدمة الدين لـ ${DEBT_RESTRUCTURE_GRACE_MONTHS} شهراً، مقابل زيادة إجمالي الدين بنسبة ${DEBT_RESTRUCTURE_PENALTY_PCT}% (فوائد مركبة).`
+                }
+                className="rounded-lg bg-gradient-to-r from-orange-600 to-orange-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-950/40 ring-1 ring-orange-500/30 transition-all hover:from-orange-500 hover:to-orange-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
+              >
+                📆 إعادة الجدولة (سنة سماح)
+                <span className="mt-0.5 block text-[11px] font-normal text-orange-100/80">
+                  +{DEBT_RESTRUCTURE_GRACE_MONTHS} شهر سماح · +
+                  {DEBT_RESTRUCTURE_PENALTY_PCT}% دين (فوائد مركبة)
+                </span>
+              </button>
+              {!isDefaulted && (
+                <button
+                  type="button"
+                  onClick={declareSovereignDefault}
+                  title="شطب نصف الدين، لكن مصادرة كل العملة الصعبة وانهيار تام للمقدرة الشرائية والاستقرار."
+                  className="animate-pulse rounded-lg bg-gradient-to-r from-red-700 to-red-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-2 ring-red-500/50 transition-all hover:from-red-600 hover:to-red-800"
+                >
+                  💣 إعلان الإفلاس السيادي
+                  <span className="mt-0.5 block text-[11px] font-normal text-red-100/90">
+                    -50% دين · مصادرة العملة الصعبة · انهيار المقدرة الشرائية
+                    والاستقرار
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+          </>
         )}
 
         {activeTab === "security" && (

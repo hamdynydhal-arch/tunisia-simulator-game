@@ -71,6 +71,8 @@ const gameStateSchema = z.object({
   geopoliticalAlignment: num,
   nationalUnionTruce: num,
   publicWageBurden: num,
+  debtGracePeriod: num,
+  isDefaulted: z.boolean(),
 });
 
 export const persistedStateSchema = z.object({

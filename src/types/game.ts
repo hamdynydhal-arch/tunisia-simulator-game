@@ -158,6 +158,19 @@ export interface GameState {
    * Submission); the forced Union Crackdown adds none.
    */
   publicWageBurden: number;
+  /**
+   * فترة سماح الدين — months remaining with automated monthly debt servicing
+   * suspended. While > 0, `advanceTime` decrements it instead of bleeding the
+   * budget for debt service; granted (with a compounding penalty) by
+   * `restructureDebt`.
+   */
+  debtGracePeriod: number;
+  /**
+   * Whether the state has declared sovereign default (`declareSovereignDefault`).
+   * A one-way flag — the Nuclear Option halves `sovereignDebt` at the cost of
+   * wiping reserves and crashing purchasing power/stability/credibility.
+   */
+  isDefaulted: boolean;
 }
 
 /** How a campaign can end. */
