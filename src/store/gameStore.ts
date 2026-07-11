@@ -94,7 +94,11 @@ const STRIKE_CRACKDOWN_SECURITY_HIT = 20;
 /** Satisfaction cost of breaking a strike by force. */
 const STRIKE_CRACKDOWN_SATISFACTION_HIT = 10;
 
-/** Cash injection (and matching debt) from one emergency loan, million TND. */
+/**
+ * Sovereign debt raised by one emergency loan, million TND — a bookkeeping
+ * figure only. Sovereign loans inject foreign currency, not local budget; see
+ * LOAN_USD_INJECTION below, which converts this at the Central Bank's rate.
+ */
 const LOAN_AMOUNT_TND = 500;
 /** Austerity hit to every region's nationalBelonging, applied immediately. */
 const LOAN_BELONGING_HIT = 15;
@@ -109,6 +113,13 @@ const LOAN_STABILITY_HIT_PER_FIELD = 10 / 0.6;
 
 /** Abstract fixed exchange rate at the Central Bank: 1 USD = 3 TND. */
 const USD_TND_RATE = 3;
+/**
+ * Hard-currency actually delivered by an emergency loan (IMF or Eastern
+ * Bloc): sovereign loans are drawn in foreign currency, converted at the
+ * Central Bank's fixed rate — the state must liquidate it for TND like any
+ * other reserves. `sovereignDebt` still books the full LOAN_AMOUNT_TND.
+ */
+const LOAN_USD_INJECTION = Math.floor(LOAN_AMOUNT_TND / USD_TND_RATE);
 /** Reference chunk the inflation/deflation rates below are quoted per. */
 const EXCHANGE_CHUNK_USD = 50;
 /** purchasingPowerIndex lost per EXCHANGE_CHUNK_USD of reserves liquidated. */
@@ -260,19 +271,21 @@ interface GameStore {
    */
   toggleCrackdown: (regionId: RegionId) => void;
   /**
-   * Draws a 500M TND IMF/Western emergency loan: an immediate cash injection
-   * matched by an equal rise in sovereign debt, paid for with a severe,
-   * immediate austerity hit to every region's belonging, development and
-   * security (see the LOAN_* constants for the exact math), and shifts
+   * Draws a 500M TND (booked as sovereign debt) IMF/Western emergency loan:
+   * sovereign loans are foreign currency, so the actual injection lands in
+   * hardCurrency (LOAN_USD_INJECTION, the same amount converted at the
+   * Central Bank rate) — not the local budget directly. Paid for with a
+   * severe, immediate austerity hit to every region's belonging, development
+   * and security (see the LOAN_* constants for the exact math), and shifts
    * geopolitical alignment +20 toward the West. Fails — no-op, returns
    * false — if alignment has already tipped negative (East-leaning).
    */
   takeEmergencyLoan: () => boolean;
   /**
-   * Draws a 500M TND BRICS/Eastern loan: the same cash injection and debt
-   * rise as the Western loan, but with NO austerity — instead it shifts
+   * Draws the same 500M TND BRICS/Eastern loan (same USD injection and debt
+   * rise as the Western loan), but with NO austerity — instead it shifts
    * alignment -40 toward the East and triggers -20M USD of Western capital
-   * flight from reserves. Always available.
+   * flight from reserves (netting +146M USD into reserves). Always available.
    */
   takeEasternBlocLoan: () => void;
   /**
@@ -639,7 +652,7 @@ export const useGameStore = create<GameStore>()(
           return {
             gameState: {
               ...state.gameState,
-              totalBudget: state.gameState.totalBudget + LOAN_AMOUNT_TND,
+              hardCurrency: state.gameState.hardCurrency + LOAN_USD_INJECTION,
               sovereignDebt: state.gameState.sovereignDebt + LOAN_AMOUNT_TND,
               geopoliticalAlignment: clampAlign(
                 state.gameState.geopoliticalAlignment +
@@ -658,14 +671,15 @@ export const useGameStore = create<GameStore>()(
           return {
             gameState: {
               ...state.gameState,
-              totalBudget: state.gameState.totalBudget + LOAN_AMOUNT_TND,
               sovereignDebt: state.gameState.sovereignDebt + LOAN_AMOUNT_TND,
               geopoliticalAlignment: clampAlign(
                 state.gameState.geopoliticalAlignment -
                   EASTERN_LOAN_ALIGNMENT_SHIFT,
               ),
               hardCurrency:
-                state.gameState.hardCurrency - EASTERN_LOAN_CAPITAL_FLIGHT_USD,
+                state.gameState.hardCurrency +
+                LOAN_USD_INJECTION -
+                EASTERN_LOAN_CAPITAL_FLIGHT_USD,
             },
           };
         }),

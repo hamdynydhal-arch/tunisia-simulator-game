@@ -11,6 +11,9 @@ const LOAN_STABILITY_HIT = 10;
 
 const EXCHANGE_CHUNK_USD = 50;
 const USD_TND_RATE = 3;
+/** Sovereign loans inject foreign currency, not local budget — the same
+ *  conversion `gameStore.ts`'s LOAN_USD_INJECTION uses. */
+const LOAN_USD_INJECTION = Math.floor(LOAN_AMOUNT_TND / USD_TND_RATE);
 const EXCHANGE_CHUNK_TND = EXCHANGE_CHUNK_USD * USD_TND_RATE;
 const LIQUIDATION_INFLATION_HIT = 5;
 const DEFLATION_BOOST = 2;
@@ -333,28 +336,28 @@ export default function CentralCommand() {
                 title={
                   imfLoanDisabled
                     ? "صندوق النقد الدولي يرفض التعامل مع دولة مصطفة شرقًا"
-                    : `تحذير (خطر متوسط): +${LOAN_AMOUNT_TND}م د.ت فورًا، لكنه يتسبب في انخفاض حاد وفوري في الرضا والاستقرار الوطنيين بسبب التقشف، ويزيد الاصطفاف نحو الغرب +${EMERGENCY_LOAN_ALIGNMENT_SHIFT}`
+                    : `تحذير (خطر متوسط): ضخ +${LOAN_USD_INJECTION} مليون دولار في الاحتياطي (يُسجل كـ ${LOAN_AMOUNT_TND} مليون د.ت دين سيادي)، لكنه يتسبب في انخفاض حاد وفوري في الرضا والاستقرار الوطنيين بسبب التقشف، ويزيد الاصطفاف نحو الغرب +${EMERGENCY_LOAN_ALIGNMENT_SHIFT}`
                 }
                 className="rounded-lg bg-gradient-to-r from-amber-600 to-amber-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-950/40 ring-1 ring-amber-500/30 transition-all hover:from-amber-500 hover:to-amber-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
               >
                 💸 قرض صندوق النقد الدولي (IMF)
                 <span className="mt-0.5 block text-[11px] font-normal text-amber-100/80">
-                  +{LOAN_AMOUNT_TND}م د.ت · تقشف: -{LOAN_BELONGING_HIT} انتماء وطني
-                  · -{LOAN_STABILITY_HIT} استقرار وطني · اصطفاف: +
-                  {EMERGENCY_LOAN_ALIGNMENT_SHIFT} غربًا
+                  +{LOAN_USD_INJECTION}م $ (دين: {LOAN_AMOUNT_TND}م د.ت) · تقشف: -
+                  {LOAN_BELONGING_HIT} انتماء وطني · -{LOAN_STABILITY_HIT} استقرار
+                  وطني · اصطفاف: +{EMERGENCY_LOAN_ALIGNMENT_SHIFT} غربًا
                 </span>
               </button>
               <button
                 type="button"
                 onClick={takeEasternBlocLoan}
-                title={`تحذير (خطر متوسط): +${LOAN_AMOUNT_TND}م د.ت، بدون تقشف. يحوّل الاصطفاف شرقًا (-${EASTERN_LOAN_ALIGNMENT_SHIFT})، ويثير هروب رساميل غربية (-${EASTERN_LOAN_CAPITAL_FLIGHT_USD}م $ من الاحتياطي)`}
+                title={`تحذير (خطر متوسط): ضخ +${LOAN_USD_INJECTION} مليون دولار في الاحتياطي (يُسجل كـ ${LOAN_AMOUNT_TND} مليون د.ت دين سيادي)، بدون تقشف، يرافقه هروب -${EASTERN_LOAN_CAPITAL_FLIGHT_USD}M$ فورًا. يحوّل الاصطفاف شرقًا (-${EASTERN_LOAN_ALIGNMENT_SHIFT})`}
                 className="rounded-lg bg-gradient-to-r from-rose-700 to-rose-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-rose-950/40 ring-1 ring-rose-500/30 transition-all hover:from-rose-600 hover:to-rose-800"
               >
                 🐉 قرض المعسكر الشرقي (BRICS)
                 <span className="mt-0.5 block text-[11px] font-normal text-rose-300/80">
-                  +{LOAN_AMOUNT_TND}م د.ت · بدون تقشف · اصطفاف: -
-                  {EASTERN_LOAN_ALIGNMENT_SHIFT} شرقًا · هروب رساميل: -
-                  {EASTERN_LOAN_CAPITAL_FLIGHT_USD}م $
+                  +{LOAN_USD_INJECTION}م $ (دين: {LOAN_AMOUNT_TND}م د.ت) · هروب
+                  رساميل: -{EASTERN_LOAN_CAPITAL_FLIGHT_USD}م $ · بدون تقشف ·
+                  اصطفاف: -{EASTERN_LOAN_ALIGNMENT_SHIFT} شرقًا
                 </span>
               </button>
             </div>
