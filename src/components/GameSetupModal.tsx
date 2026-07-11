@@ -2,17 +2,24 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import { formatMillions } from "@/lib/format";
 import type { Difficulty } from "@/types/game";
 
+// The 33-66-99 scaling: each tier's absolute values, mirroring gameStore.ts's
+// EASY_*/HARD_* starting-conditions constants (display copy only).
 const NORMAL_STARTING_BUDGET_TND = 5_000;
 const NORMAL_STARTING_HARD_CURRENCY_USD = 2_400;
-const EASY_STARTING_BUDGET_TND = 200;
-const EASY_STARTING_HARD_CURRENCY_USD = 50;
-const EASY_SHADOW_ECONOMY_PCT = 20;
-const HARD_STARTING_SOVEREIGN_DEBT_TND = 500;
+const EASY_STARTING_BUDGET_TND = 7_500;
+const EASY_STARTING_HARD_CURRENCY_USD = 3_600;
+const HARD_STARTING_BUDGET_TND = 2_500;
 const HARD_STARTING_HARD_CURRENCY_USD = 0;
-const HARD_SHADOW_ECONOMY_PCT = 20;
+const HARD_STARTING_SOVEREIGN_DEBT_TND = 1_000;
+
+/** Explicit comma-grouped thousands, e.g. "7,500 مليون دينار" — distinct
+ *  from the rest of the app's ar-TN (period-grouped) `formatMillions`,
+ *  scoped to this briefing view only per the exact copy requested. */
+function formatMillionsComma(value: number, unit: "دينار" | "دولار"): string {
+  return `${value.toLocaleString("en-US")} مليون ${unit}`;
+}
 
 // Win/loss thresholds mirror gameStore.ts's HISTORICAL_TRIUMPH_*/COLLAPSE_*/
 // CRITICAL_STABILITY_* constants — display copy only, not re-derived logic.
@@ -33,19 +40,19 @@ const DIFFICULTIES: readonly {
     key: "easy",
     label: "مسار شعبوي",
     icon: "📢",
-    description: `ميزانية ${EASY_STARTING_BUDGET_TND}م د.ت وعملة صعبة ${EASY_STARTING_HARD_CURRENCY_USD}م $ فقط، لكن اقتصاد موازٍ أخف بنسبة ${EASY_SHADOW_ECONOMY_PCT}٪ في كل الولايات.`,
+    description: "ميزانية ضخمة 7500م د.ت واحتياطي 3600م$. تهرب ضريبي منخفض جداً.",
   },
   {
     key: "normal",
     label: "حكومة تكنوقراط",
     icon: "⚖️",
-    description: "الوضع الأساسي القياسي: ميزانية ووضع اقتصادي متوازنان، بلا مزايا أو أعباء إضافية.",
+    description: "الوضع الأساسي القياسي: ميزانية 5000م د.ت واحتياطي 2400م$.",
   },
   {
     key: "hard",
     label: "رجل دولة",
     icon: "🎖️",
-    description: `دين سيادي مسبق ${HARD_STARTING_SOVEREIGN_DEBT_TND}م د.ت وبدون احتياطي عملة صعبة، مع اقتصاد موازٍ أثقل بنسبة ${HARD_SHADOW_ECONOMY_PCT}٪.`,
+    description: "ديون سيادية خانقة 1000م د.ت، صفر احتياطي $، وتهرب ضريبي مستفحل (+30%).",
   },
 ];
 
@@ -55,22 +62,22 @@ function startingStatsFor(difficulty: Difficulty) {
       budget: EASY_STARTING_BUDGET_TND,
       hardCurrency: EASY_STARTING_HARD_CURRENCY_USD,
       sovereignDebt: 0,
-      shadowNote: `-${EASY_SHADOW_ECONOMY_PCT}٪ اقتصاد موازٍ`,
+      shadowNote: "تقلص بـ 30% (ميزة)",
     };
   }
   if (difficulty === "hard") {
     return {
-      budget: NORMAL_STARTING_BUDGET_TND,
+      budget: HARD_STARTING_BUDGET_TND,
       hardCurrency: HARD_STARTING_HARD_CURRENCY_USD,
       sovereignDebt: HARD_STARTING_SOVEREIGN_DEBT_TND,
-      shadowNote: `+${HARD_SHADOW_ECONOMY_PCT}٪ اقتصاد موازٍ`,
+      shadowNote: "تضخم بـ 30% (عقوبة)",
     };
   }
   return {
     budget: NORMAL_STARTING_BUDGET_TND,
     hardCurrency: NORMAL_STARTING_HARD_CURRENCY_USD,
     sovereignDebt: 0,
-    shadowNote: "بلا تغيير",
+    shadowNote: "معدل طبيعي (بلا تغيير)",
   };
 }
 
@@ -247,19 +254,19 @@ export default function GameSetupModal() {
                 <div>
                   <dt className="text-slate-500">الميزانية</dt>
                   <dd className="font-bold text-slate-100">
-                    {formatMillions(stats.budget, "TND")}
+                    {formatMillionsComma(stats.budget, "دينار")}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-slate-500">العملة الصعبة</dt>
                   <dd className="font-bold text-slate-100">
-                    {formatMillions(stats.hardCurrency, "USD")}
+                    {formatMillionsComma(stats.hardCurrency, "دولار")}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-slate-500">الدين السيادي</dt>
                   <dd className="font-bold text-slate-100">
-                    {formatMillions(stats.sovereignDebt, "TND")}
+                    {formatMillionsComma(stats.sovereignDebt, "دينار")}
                   </dd>
                 </div>
                 <div>

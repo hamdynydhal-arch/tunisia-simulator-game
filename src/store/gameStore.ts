@@ -196,15 +196,20 @@ const HISTORICAL_TRIUMPH_PURCHASING_POWER_THRESHOLD = 60;
 
 /**
  * The Inauguration: starting-conditions tiers applied once by `startGame`.
- * Only the fields named per tier change — everything else keeps
- * INITIAL_GAME_STATE's baseline (the "حكومة تكنوقراط" / Normal tier).
+ * The 33-66-99 scaling: each tier sets every field to a precise absolute
+ * value relative to the Normal baseline (budget 5000 / hardCurrency 2400 /
+ * sovereignDebt 0) — Easy at 1.5x budget and reserves, Hard at 0.5x budget,
+ * 0 reserves, and a fresh debt burden — rather than leaving fields at
+ * arbitrary flat numbers unrelated to that baseline.
  */
-const EASY_STARTING_BUDGET_TND = 200;
-const EASY_STARTING_HARD_CURRENCY_USD = 50;
-const EASY_SHADOW_ECONOMY_MULTIPLIER = 0.8;
-const HARD_STARTING_SOVEREIGN_DEBT_TND = 500;
+const EASY_STARTING_BUDGET_TND = 7_500;
+const EASY_STARTING_HARD_CURRENCY_USD = 3_600;
+const EASY_STARTING_SOVEREIGN_DEBT_TND = 0;
+const EASY_SHADOW_ECONOMY_MULTIPLIER = 0.7;
+const HARD_STARTING_BUDGET_TND = 2_500;
 const HARD_STARTING_HARD_CURRENCY_USD = 0;
-const HARD_SHADOW_ECONOMY_MULTIPLIER = 1.2;
+const HARD_STARTING_SOVEREIGN_DEBT_TND = 1_000;
+const HARD_SHADOW_ECONOMY_MULTIPLIER = 1.3;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -1567,6 +1572,7 @@ export const useGameStore = create<GameStore>()(
             overrides = {
               totalBudget: EASY_STARTING_BUDGET_TND,
               hardCurrency: EASY_STARTING_HARD_CURRENCY_USD,
+              sovereignDebt: EASY_STARTING_SOVEREIGN_DEBT_TND,
             };
             regions = { ...regions };
             for (const region of Object.values(state.regions)) {
@@ -1579,8 +1585,9 @@ export const useGameStore = create<GameStore>()(
             }
           } else if (difficulty === "hard") {
             overrides = {
-              sovereignDebt: HARD_STARTING_SOVEREIGN_DEBT_TND,
+              totalBudget: HARD_STARTING_BUDGET_TND,
               hardCurrency: HARD_STARTING_HARD_CURRENCY_USD,
+              sovereignDebt: HARD_STARTING_SOVEREIGN_DEBT_TND,
             };
             regions = { ...regions };
             for (const region of Object.values(state.regions)) {
