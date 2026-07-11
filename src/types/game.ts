@@ -145,6 +145,19 @@ export interface GameState {
    * a deep Eastern lean adds friction to buying USD at the Central Bank.
    */
   geopoliticalAlignment: number;
+  /**
+   * الهدنة النقابية — months of guaranteed labour peace remaining. While > 0,
+   * no region can newly enter a general strike. Set by the three National
+   * Union Agreement actions; ticks down by 1 every month in `advanceTime`.
+   */
+  nationalUnionTruce: number;
+  /**
+   * العبء الهيكلي للأجور — permanent structural wage cost, million TND,
+   * bled from the budget every month once a union agreement grants a truce
+   * with payroll concessions. Only ever rises (Social Pact / Total
+   * Submission); the forced Union Crackdown adds none.
+   */
+  publicWageBurden: number;
 }
 
 /** How a campaign can end. */

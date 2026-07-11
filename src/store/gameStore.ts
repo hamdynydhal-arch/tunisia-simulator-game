@@ -70,6 +70,8 @@ const INITIAL_GAME_STATE: GameState = {
   oligarchyControl: 80,
   antiMonopolyActive: false,
   geopoliticalAlignment: 50,
+  nationalUnionTruce: 0,
+  publicWageBurden: 0,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -124,6 +126,22 @@ const OVERRIDE_STABILITY_HIT_PER_FIELD = 15 / 0.6;
 const INFLATION_BLEED_THRESHOLD = 80;
 /** stateSatisfaction lost per 10 points purchasingPowerIndex sits under 80. */
 const INFLATION_BLEED_PER_10_POINTS = 2;
+
+/**
+ * National Union Agreements: three ways to buy an end to the strike death
+ * spiral, each trading a different structural cost for months of guaranteed
+ * labour peace (`nationalUnionTruce`). All three resolve every active strike
+ * immediately; none can be re-signed while a truce is already running.
+ */
+const SOCIAL_PACT_TRUCE_MONTHS = 12;
+const SOCIAL_PACT_WAGE_BURDEN_TND = 50;
+const TOTAL_SUBMISSION_TRUCE_MONTHS = 24;
+const TOTAL_SUBMISSION_WAGE_BURDEN_TND = 120;
+const UNION_CRACKDOWN_TRUCE_MONTHS = 36;
+/** Flat hit to developmentIndex and securityLevel, per the crackdown's
+ *  immediate, violent stability collapse (no payroll cost, unlike the two
+ *  pacts above). */
+const UNION_CRACKDOWN_STABILITY_HIT_PER_FIELD = 15;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -269,6 +287,27 @@ interface GameStore {
    * 0) — a brutal, budget-free alternative that risks armed rebellion.
    */
   crackdownStrike: (regionId: RegionId) => void;
+  /**
+   * Signs a National Social Pact with the unions: 12 months of guaranteed
+   * truce (no new strikes), ends every currently active strike, at the cost
+   * of +50M TND added permanently to `publicWageBurden`. No-op if a truce is
+   * already running.
+   */
+  signSocialPact: () => void;
+  /**
+   * Buys total union loyalty: 24 months of truce, ends every active strike,
+   * at a heavier permanent cost of +120M TND to `publicWageBurden`. No-op if
+   * a truce is already running.
+   */
+  signTotalSubmission: () => void;
+  /**
+   * Forces labour peace by crackdown instead of payroll: 36 months of truce,
+   * ends every active strike, adds no wage burden, but immediately and
+   * violently collapses stability — -15 to every region's developmentIndex
+   * and securityLevel (both clamped 0-100), and stateCredibility dropped to
+   * 0. No-op if a truce is already running.
+   */
+  launchUnionCrackdown: () => void;
   /**
    * Liquidates `usdAmount` of hard-currency reserves at the Central Bank's
    * fixed 1:3 rate (USD→TND), scaling the inflation hit proportionally
@@ -677,6 +716,80 @@ export const useGameStore = create<GameStore>()(
           };
         }),
 
+      signSocialPact: () =>
+        set((state) => {
+          if (state.gameState.nationalUnionTruce > 0) {
+            return state;
+          }
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            if (region.isStriking) {
+              regions[region.id] = { ...region, isStriking: false };
+            }
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              nationalUnionTruce: SOCIAL_PACT_TRUCE_MONTHS,
+              publicWageBurden:
+                state.gameState.publicWageBurden + SOCIAL_PACT_WAGE_BURDEN_TND,
+            },
+            regions,
+          };
+        }),
+
+      signTotalSubmission: () =>
+        set((state) => {
+          if (state.gameState.nationalUnionTruce > 0) {
+            return state;
+          }
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            if (region.isStriking) {
+              regions[region.id] = { ...region, isStriking: false };
+            }
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              nationalUnionTruce: TOTAL_SUBMISSION_TRUCE_MONTHS,
+              publicWageBurden:
+                state.gameState.publicWageBurden +
+                TOTAL_SUBMISSION_WAGE_BURDEN_TND,
+            },
+            regions,
+          };
+        }),
+
+      launchUnionCrackdown: () =>
+        set((state) => {
+          if (state.gameState.nationalUnionTruce > 0) {
+            return state;
+          }
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          const regions = { ...state.regions };
+          for (const region of Object.values(state.regions)) {
+            regions[region.id] = {
+              ...region,
+              isStriking: false,
+              developmentIndex: clampPct(
+                region.developmentIndex - UNION_CRACKDOWN_STABILITY_HIT_PER_FIELD,
+              ),
+              securityLevel: clampPct(
+                region.securityLevel - UNION_CRACKDOWN_STABILITY_HIT_PER_FIELD,
+              ),
+            };
+          }
+          return {
+            gameState: {
+              ...state.gameState,
+              nationalUnionTruce: UNION_CRACKDOWN_TRUCE_MONTHS,
+              stateCredibility: 0,
+            },
+            regions,
+          };
+        }),
+
       exchangeUsdToTnd: (usdAmount) => {
         const { gameState } = get();
         if (
@@ -833,6 +946,15 @@ export const useGameStore = create<GameStore>()(
           ) {
             return state;
           }
+
+          // National Union Truce: whether labour peace holds THIS elapsing
+          // month (checked before decrementing, so a truce set to N months
+          // protects exactly N ticks, not N-1).
+          const unionTruceActive = state.gameState.nationalUnionTruce > 0;
+          const nextNationalUnionTruce = Math.max(
+            0,
+            state.gameState.nationalUnionTruce - 1,
+          );
 
           // Finances for the elapsing month, from the pre-tick state.
           const { income, net, hardCurrencyNet } = computeMonthlyFinances(
@@ -1024,7 +1146,7 @@ export const useGameStore = create<GameStore>()(
           // general strike (0 GDP/taxes via `monthlyRegionIncome`). Unlike the
           // other systemic loops this does NOT auto-resolve — only the
           // player's `resolveStrike` negotiation lifts it.
-          {
+          if (!unionTruceActive) {
             let struck: Record<RegionId, Region> | null = null;
             for (const region of Object.values(regions)) {
               if (
@@ -1116,7 +1238,8 @@ export const useGameStore = create<GameStore>()(
             net +
             eventBudgetChange +
             political.budgetDelta +
-            oligarchyBudgetDelta;
+            oligarchyBudgetDelta -
+            state.gameState.publicWageBurden;
           // Exports renew reserves; advanced-project USD upkeep drains them.
           // Harka exits add their own diplomatic-friction drain on top.
           const nextHardCurrency =
@@ -1198,6 +1321,7 @@ export const useGameStore = create<GameStore>()(
               isGameOver,
               oligarchyControl: nextOligarchyControl,
               purchasingPowerIndex: nextPurchasingPowerIndex,
+              nationalUnionTruce: nextNationalUnionTruce,
             },
             activeProjects: ticked.filter(
               (project) => project.monthsRemaining > 0,
@@ -1234,7 +1358,7 @@ export const useGameStore = create<GameStore>()(
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 21,
+      version: 22,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1414,6 +1538,12 @@ export const useGameStore = create<GameStore>()(
           state.gameState.oligarchyControl ??= 80;
           state.gameState.antiMonopolyActive ??= false;
           state.gameState.geopoliticalAlignment ??= 50;
+        }
+        // v21 → v22: National Union Agreements. No truce running, no
+        // structural wage burden yet.
+        if (version < 22) {
+          state.gameState.nationalUnionTruce ??= 0;
+          state.gameState.publicWageBurden ??= 0;
         }
         return persisted;
       },

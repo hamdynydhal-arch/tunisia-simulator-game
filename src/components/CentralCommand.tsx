@@ -31,6 +31,13 @@ const EMERGENCY_LOAN_ALIGNMENT_SHIFT = 20;
 const EASTERN_LOAN_ALIGNMENT_SHIFT = 40;
 const EASTERN_LOAN_CAPITAL_FLIGHT_USD = 20;
 
+const SOCIAL_PACT_TRUCE_MONTHS = 12;
+const SOCIAL_PACT_WAGE_BURDEN_TND = 50;
+const TOTAL_SUBMISSION_TRUCE_MONTHS = 24;
+const TOTAL_SUBMISSION_WAGE_BURDEN_TND = 120;
+const UNION_CRACKDOWN_TRUCE_MONTHS = 36;
+const UNION_CRACKDOWN_STABILITY_HIT = 30;
+
 type CommandTab = "economy" | "foreign" | "security" | "internal";
 
 const TABS: readonly { key: CommandTab; label: string; icon: string }[] = [
@@ -88,6 +95,19 @@ export default function CentralCommand() {
     (state) => state.gameState.criticalStabilityMonths,
   );
   const isGameOver = useGameStore((state) => state.gameState.isGameOver);
+  const nationalUnionTruce = useGameStore(
+    (state) => state.gameState.nationalUnionTruce,
+  );
+  const publicWageBurden = useGameStore(
+    (state) => state.gameState.publicWageBurden,
+  );
+  const signSocialPact = useGameStore((state) => state.signSocialPact);
+  const signTotalSubmission = useGameStore(
+    (state) => state.signTotalSubmission,
+  );
+  const launchUnionCrackdown = useGameStore(
+    (state) => state.launchUnionCrackdown,
+  );
 
   const boost = Math.max(0, Math.floor(15 * (stateCredibility / 100)));
   const exhausted = stateCredibility <= 0;
@@ -106,6 +126,7 @@ export default function CentralCommand() {
   const imfLoanDisabled = geopoliticalAlignment < EMERGENCY_LOAN_MIN_ALIGNMENT;
 
   const monthsToCollapse = 3 - criticalStabilityMonths;
+  const unionTruceActive = nationalUnionTruce > 0;
 
   return (
     <div>
@@ -431,10 +452,64 @@ export default function CentralCommand() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/20 p-4 text-center backdrop-blur-md">
-              <p className="text-xs text-slate-500">
-                🏗️ قريبًا: سياسات اجتماعية داخلية إضافية
-              </p>
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 shadow-lg shadow-black/20 backdrop-blur-md">
+              <h3 className="text-sm font-semibold text-slate-300">
+                🤝 المركزية النقابية
+              </h3>
+
+              {unionTruceActive && (
+                <p className="mt-1 text-xs font-semibold text-sky-300">
+                  الهدنة النقابية: {nationalUnionTruce} أشهر متبقية
+                </p>
+              )}
+              {publicWageBurden > 0 && (
+                <p className="mt-1 text-xs font-semibold text-amber-300">
+                  العبء الهيكلي للأجور: -{Math.round(publicWageBurden)} مليون
+                  د.ت/شهريًا
+                </p>
+              )}
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={signSocialPact}
+                  disabled={unionTruceActive}
+                  title={`هدوء لـ ${SOCIAL_PACT_TRUCE_MONTHS} شهراً مقابل +${SOCIAL_PACT_WAGE_BURDEN_TND}M عبء أجور شهري دائم.`}
+                  className="rounded-lg border border-sky-500/50 bg-sky-500/10 px-4 py-2.5 text-sm font-bold text-sky-200 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  🤝 ميثاق سلم اجتماعي (سنة)
+                  <span className="mt-0.5 block text-[11px] font-normal text-sky-300/80">
+                    +{SOCIAL_PACT_TRUCE_MONTHS} شهر هدنة · +
+                    {SOCIAL_PACT_WAGE_BURDEN_TND}م د.ت/شهر عبء دائم
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={signTotalSubmission}
+                  disabled={unionTruceActive}
+                  title={`هدوء لـ ${TOTAL_SUBMISSION_TRUCE_MONTHS} شهراً مقابل +${TOTAL_SUBMISSION_WAGE_BURDEN_TND}M عبء أجور شهري دائم.`}
+                  className="rounded-lg bg-gradient-to-r from-orange-600 to-orange-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-950/40 ring-1 ring-orange-500/30 transition-all hover:from-orange-500 hover:to-orange-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
+                >
+                  💰 شراء ولاء كلي (سنتان)
+                  <span className="mt-0.5 block text-[11px] font-normal text-orange-100/80">
+                    +{TOTAL_SUBMISSION_TRUCE_MONTHS} شهر هدنة · +
+                    {TOTAL_SUBMISSION_WAGE_BURDEN_TND}م د.ت/شهر عبء دائم
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={launchUnionCrackdown}
+                  disabled={unionTruceActive}
+                  title={`هدوء قسري لـ ${UNION_CRACKDOWN_TRUCE_MONTHS} شهراً. لا أعباء مالية، لكن انهيار فوري وعنيف للاستقرار الوطني (-${UNION_CRACKDOWN_STABILITY_HIT}).`}
+                  className="rounded-lg bg-gradient-to-r from-red-700 to-red-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-2 ring-red-500/50 transition-all hover:from-red-600 hover:to-red-800 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
+                >
+                  ⚔️ صدام شامل وتجميد (3 سنوات)
+                  <span className="mt-0.5 block text-[11px] font-normal text-red-100/90">
+                    +{UNION_CRACKDOWN_TRUCE_MONTHS} شهر هدنة · بدون عبء مالي ·
+                    -{UNION_CRACKDOWN_STABILITY_HIT} استقرار وطني
+                  </span>
+                </button>
+              </div>
             </div>
           </>
         )}

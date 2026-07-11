@@ -69,6 +69,8 @@ const gameStateSchema = z.object({
   oligarchyControl: num,
   antiMonopolyActive: z.boolean(),
   geopoliticalAlignment: num,
+  nationalUnionTruce: num,
+  publicWageBurden: num,
 });
 
 export const persistedStateSchema = z.object({
