@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/store/gameStore";
-import SovereignArsenal from "@/components/SovereignArsenal";
+import CentralCommand from "@/components/CentralCommand";
 import { formatGameDate, formatMillions, formatNumber } from "@/lib/format";
 import type { HistoryPoint } from "@/types/game";
 
@@ -196,7 +196,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         <div className="mt-5">
-          <SovereignArsenal />
+          <CentralCommand />
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
