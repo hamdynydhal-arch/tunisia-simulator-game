@@ -19,7 +19,8 @@ export default function AutoAdvance() {
     Boolean(
       state.gameState.politicalEvent ||
         state.gameState.outcome ||
-        state.gameState.isGameOver,
+        state.gameState.isGameOver ||
+        !state.gameState.gameStarted,
     ),
   );
 

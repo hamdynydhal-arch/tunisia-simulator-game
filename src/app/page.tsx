@@ -6,10 +6,12 @@ import EventToast from "@/components/EventToast";
 import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
 import GameOverModal from "@/components/GameOverModal";
+import GameSetupModal from "@/components/GameSetupModal";
 import MapPanel from "@/components/MapPanel";
 import OutcomeScreen from "@/components/OutcomeScreen";
 import PoliticalEventModal from "@/components/PoliticalEventModal";
 import RegionSidebar from "@/components/RegionSidebar";
+import TutorialOverlay from "@/components/TutorialOverlay";
 import VictoryScreen from "@/components/VictoryScreen";
 
 export default function Home() {
@@ -25,6 +27,8 @@ export default function Home() {
       <OutcomeScreen />
       <GameOverModal />
       <VictoryScreen />
+      <GameSetupModal />
+      <TutorialOverlay />
       <AutoAdvance />
       {/* overflow-x-clip contains the sidebar's slide-in animation */}
       <div className="flex flex-1 overflow-x-clip">

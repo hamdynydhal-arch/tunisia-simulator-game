@@ -5,6 +5,7 @@ import { isValidPersistedState } from "@/store/schema";
 import type {
   ActiveProject,
   CompletedProject,
+  Difficulty,
   GameEvent,
   GameOutcome,
   GameState,
@@ -75,6 +76,12 @@ const INITIAL_GAME_STATE: GameState = {
   debtGracePeriod: 0,
   isDefaulted: false,
   isVictorious: false,
+  playerName: "",
+  partyName: "",
+  slogan: "",
+  difficulty: "normal",
+  hasCompletedTutorial: false,
+  gameStarted: false,
 };
 
 /** Fixed cost of one propaganda campaign, million TND. */
@@ -186,6 +193,18 @@ const DEFAULT_STABILITY_HIT_PER_FIELD = 15;
  */
 const HISTORICAL_TRIUMPH_STABILITY_THRESHOLD = 85;
 const HISTORICAL_TRIUMPH_PURCHASING_POWER_THRESHOLD = 60;
+
+/**
+ * The Inauguration: starting-conditions tiers applied once by `startGame`.
+ * Only the fields named per tier change — everything else keeps
+ * INITIAL_GAME_STATE's baseline (the "حكومة تكنوقراط" / Normal tier).
+ */
+const EASY_STARTING_BUDGET_TND = 200;
+const EASY_STARTING_HARD_CURRENCY_USD = 50;
+const EASY_SHADOW_ECONOMY_MULTIPLIER = 0.8;
+const HARD_STARTING_SOVEREIGN_DEBT_TND = 500;
+const HARD_STARTING_HARD_CURRENCY_USD = 0;
+const HARD_SHADOW_ECONOMY_MULTIPLIER = 1.2;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -419,6 +438,20 @@ interface GameStore {
   advanceTime: () => void;
   /** Wipes the campaign back to the initial state. */
   resetGame: () => void;
+  /**
+   * Completes The Inauguration: sets the player's persona, applies the
+   * chosen difficulty tier's starting-conditions overrides (budget, hard
+   * currency, sovereignDebt, shadowEconomyLevel — see the EASY_ and HARD_
+   * constants), and sets `gameStarted = true`, dismissing `GameSetupModal`.
+   */
+  startGame: (
+    playerName: string,
+    partyName: string,
+    slogan: string,
+    difficulty: Difficulty,
+  ) => void;
+  /** Marks the onboarding bubble tutorial as seen, dismissing `TutorialOverlay`. */
+  completeTutorial: () => void;
 }
 
 export const useGameStore = create<GameStore>()(
@@ -1074,12 +1107,14 @@ export const useGameStore = create<GameStore>()(
 
       advanceTime: () =>
         set((state) => {
-          // A political event on screen, a finished campaign, or a sustained
-          // regime collapse all freeze the loop.
+          // A political event on screen, a finished campaign, a sustained
+          // regime collapse, or an un-inaugurated campaign (GameSetupModal
+          // still showing) all freeze the loop.
           if (
             state.gameState.politicalEvent ||
             state.gameState.outcome ||
-            state.gameState.isGameOver
+            state.gameState.isGameOver ||
+            !state.gameState.gameStarted
           ) {
             return state;
           }
@@ -1521,13 +1556,68 @@ export const useGameStore = create<GameStore>()(
           dashboardOpen: false,
           crisisCenterOpen: false,
         }),
+
+      startGame: (playerName, partyName, slogan, difficulty) =>
+        set((state) => {
+          const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+          let regions = state.regions;
+          let overrides: Partial<GameState> = {};
+
+          if (difficulty === "easy") {
+            overrides = {
+              totalBudget: EASY_STARTING_BUDGET_TND,
+              hardCurrency: EASY_STARTING_HARD_CURRENCY_USD,
+            };
+            regions = { ...regions };
+            for (const region of Object.values(state.regions)) {
+              regions[region.id] = {
+                ...region,
+                shadowEconomyLevel: clampPct(
+                  region.shadowEconomyLevel * EASY_SHADOW_ECONOMY_MULTIPLIER,
+                ),
+              };
+            }
+          } else if (difficulty === "hard") {
+            overrides = {
+              sovereignDebt: HARD_STARTING_SOVEREIGN_DEBT_TND,
+              hardCurrency: HARD_STARTING_HARD_CURRENCY_USD,
+            };
+            regions = { ...regions };
+            for (const region of Object.values(state.regions)) {
+              regions[region.id] = {
+                ...region,
+                shadowEconomyLevel: clampPct(
+                  region.shadowEconomyLevel * HARD_SHADOW_ECONOMY_MULTIPLIER,
+                ),
+              };
+            }
+          }
+
+          return {
+            gameState: {
+              ...state.gameState,
+              ...overrides,
+              playerName,
+              partyName,
+              slogan,
+              difficulty,
+              gameStarted: true,
+            },
+            regions,
+          };
+        }),
+
+      completeTutorial: () =>
+        set((state) => ({
+          gameState: { ...state.gameState, hasCompletedTutorial: true },
+        })),
     }),
     {
       name: "tunisia-simulator-campaign",
       // Checksummed + Base64 storage: hand-edited saves fail verification and
       // are dropped (anti-cheat).
       storage: createJSONStorage(() => checksummedStorage),
-      version: 24,
+      version: 25,
       // Zod gate: after migration, a save that isn't a structurally valid
       // campaign is discarded and the clean default state is used instead of
       // crashing on malformed data.
@@ -1725,6 +1815,21 @@ export const useGameStore = create<GameStore>()(
         // forward, on the next tick.
         if (version < 24) {
           state.gameState.isVictorious ??= false;
+        }
+        // v24 → v25: The Inauguration (persona, difficulty, onboarding).
+        // Any save reaching this migration already exists, meaning that
+        // campaign was already started and played under the old flow — so,
+        // unlike a genuinely new campaign, it backfills gameStarted and
+        // hasCompletedTutorial to true rather than their fresh-game default
+        // of false, or every existing save would resurface the setup modal
+        // and tutorial bubbles retroactively.
+        if (version < 25) {
+          state.gameState.playerName ??= "";
+          state.gameState.partyName ??= "";
+          state.gameState.slogan ??= "";
+          state.gameState.difficulty ??= "normal";
+          state.gameState.hasCompletedTutorial ??= true;
+          state.gameState.gameStarted ??= true;
         }
         return persisted;
       },

@@ -38,7 +38,10 @@ export default function GameHud() {
   );
   const national = useMemo(() => computeNationalMetrics(regions), [regions]);
   const paused = Boolean(
-    gameState.politicalEvent || gameState.outcome || gameState.isGameOver,
+    gameState.politicalEvent ||
+      gameState.outcome ||
+      gameState.isGameOver ||
+      !gameState.gameStarted,
   );
 
   const inDebt = gameState.totalBudget < 0;
@@ -52,9 +55,25 @@ export default function GameHud() {
         </div>
       )}
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <h1 className="me-auto text-base font-semibold tracking-wide text-slate-100">
-          محاكي تونس
-        </h1>
+        <div className="me-auto">
+          {gameState.playerName || gameState.partyName ? (
+            <>
+              <h1 className="text-base font-semibold tracking-wide text-slate-100">
+                الرئيس: {gameState.playerName}
+                {gameState.partyName && ` | ${gameState.partyName}`}
+              </h1>
+              {gameState.slogan && (
+                <p className="text-xs italic text-slate-500">
+                  {gameState.slogan}
+                </p>
+              )}
+            </>
+          ) : (
+            <h1 className="text-base font-semibold tracking-wide text-slate-100">
+              محاكي تونس
+            </h1>
+          )}
+        </div>
         <div className="flex items-baseline gap-2">
           <span className="text-xs text-slate-500">التاريخ</span>
           <span className="text-sm font-semibold tabular-nums text-slate-100">

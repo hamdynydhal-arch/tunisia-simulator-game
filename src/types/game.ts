@@ -179,10 +179,29 @@ export interface GameState {
    * freeze `advanceTime`.
    */
   isVictorious: boolean;
+  /** The player's chosen political persona, set once at The Inauguration. */
+  playerName: string;
+  partyName: string;
+  slogan: string;
+  /** Starting-conditions tier chosen at The Inauguration; applied once by
+   *  `startGame` and otherwise inert (does not affect ongoing math). */
+  difficulty: Difficulty;
+  /** Whether the player has clicked through the lightweight onboarding
+   *  bubbles (`TutorialOverlay`). */
+  hasCompletedTutorial: boolean;
+  /**
+   * Whether the player has completed The Inauguration (`GameSetupModal`).
+   * `false` only for a brand-new, never-configured campaign — the modal
+   * renders exactly while this is false, gating the very first tick.
+   */
+  gameStarted: boolean;
 }
 
 /** How a campaign can end. */
 export type GameOutcome = "collapse" | "victory";
+
+/** Starting-conditions tier chosen at The Inauguration (`GameSetupModal`). */
+export type Difficulty = "easy" | "normal" | "hard";
 
 /** One month of national indicators, kept for the analytics dashboard. */
 export interface HistoryPoint {

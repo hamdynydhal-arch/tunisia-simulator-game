@@ -74,6 +74,12 @@ const gameStateSchema = z.object({
   debtGracePeriod: num,
   isDefaulted: z.boolean(),
   isVictorious: z.boolean(),
+  playerName: z.string(),
+  partyName: z.string(),
+  slogan: z.string(),
+  difficulty: z.enum(["easy", "normal", "hard"]),
+  hasCompletedTutorial: z.boolean(),
+  gameStarted: z.boolean(),
 });
 
 export const persistedStateSchema = z.object({
