@@ -7,9 +7,6 @@ import type {
 } from "@/types/game";
 import { UNLOCK_CHAINS, getProjectTemplate } from "@/data/projects";
 
-/** A region may not run more construction sites than this at once. */
-export const MAX_ACTIVE_PROJECTS_PER_REGION = 2;
-
 /** Flat upkeep of an ongoing construction site, in million TND per month. */
 export const ACTIVE_PROJECT_UPKEEP_TND = 2;
 

@@ -366,6 +366,41 @@ export const BORDER_REGION_IDS: readonly RegionId[] = [
   "medenine",
 ];
 
+/**
+ * Lightweight geographic grouping into Tunisia's seven standard statistical
+ * macro-regions (the INS "grandes régions": Grand Tunis, Nord Est, Nord
+ * Ouest, Centre Est, Centre Ouest, Sud Est, Sud Ouest). Two governorates in
+ * the same group are treated as "neighbors" for the spatial spillover engine
+ * in `gameStore.ts` — a lookup table, not a precise border-adjacency graph,
+ * per Phase 28's "lightweight, logical grouping" scope.
+ */
+export const REGION_GROUP: Record<RegionId, string> = {
+  tunis: "grand-tunis",
+  ariana: "grand-tunis",
+  "ben-arous": "grand-tunis",
+  manouba: "grand-tunis",
+  nabeul: "north-east",
+  zaghouan: "north-east",
+  bizerte: "north-east",
+  beja: "north-west",
+  jendouba: "north-west",
+  "el-kef": "north-west",
+  siliana: "north-west",
+  sousse: "center-east",
+  monastir: "center-east",
+  mahdia: "center-east",
+  sfax: "center-east",
+  kairouan: "center-west",
+  kasserine: "center-west",
+  "sidi-bouzid": "center-west",
+  gabes: "south-east",
+  medenine: "south-east",
+  tataouine: "south-east",
+  gafsa: "south-west",
+  tozeur: "south-west",
+  kebili: "south-west",
+};
+
 const clampPct = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
 
 /**

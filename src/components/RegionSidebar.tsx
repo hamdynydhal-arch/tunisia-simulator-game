@@ -2,7 +2,6 @@
 
 import { useGameStore } from "@/store/gameStore";
 import { PROJECT_TEMPLATES, getProjectTemplate } from "@/data/projects";
-import { MAX_ACTIVE_PROJECTS_PER_REGION } from "@/lib/economy";
 import { formatMillions, formatMonths, formatNumber } from "@/lib/format";
 
 /**
@@ -34,7 +33,6 @@ export default function RegionSidebar() {
   const regionProjects = activeProjects.filter(
     (project) => project.regionId === region.id,
   );
-  const atCapacity = regionProjects.length >= MAX_ACTIVE_PROJECTS_PER_REGION;
 
   // Recommended projects (the region's needs, in priority order) come first.
   // A project is locked by an unmet tech-tree prerequisite OR by the national
@@ -321,11 +319,6 @@ export default function RegionSidebar() {
 
       <section className="mt-8">
         <h3 className="text-sm font-semibold text-slate-300">المشاريع المتاحة</h3>
-        {atCapacity && (
-          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
-            الحد الأقصى للمشاريع النشطة ممتلئ
-          </p>
-        )}
         <ul className="mt-3 space-y-3">
           {orderedTemplates.map((template) => {
             const recommended = region.currentNeeds.includes(template.id);
@@ -389,18 +382,16 @@ export default function RegionSidebar() {
                   <button
                     type="button"
                     onClick={() => startProject(template.id, region.id)}
-                    disabled={locked || coastalBlocked || !affordable || atCapacity}
+                    disabled={locked || coastalBlocked || !affordable}
                     aria-label={`بناء ${template.name}`}
                     title={
                       locked
                         ? lockReason
                         : coastalBlocked
                           ? "يتطلب ولاية ساحلية"
-                          : atCapacity
-                            ? "الحد الأقصى للمشاريع النشطة ممتلئ"
-                            : affordable
-                              ? undefined
-                              : "الأموال غير كافية"
+                          : affordable
+                            ? undefined
+                            : "الأموال غير كافية"
                     }
                     className="rounded-md bg-gradient-to-r from-emerald-600 to-emerald-800 px-3 py-1 text-xs font-bold text-white shadow shadow-emerald-950/40 transition-all hover:from-emerald-500 hover:to-emerald-700 active:from-emerald-700 active:to-emerald-900 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500"
                   >
@@ -458,13 +449,23 @@ export default function RegionSidebar() {
       </section>
 
       <section className="mt-8">
-        <h3 className="text-sm font-semibold text-slate-300">قيد الإنجاز</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+          قيد الإنجاز
+          {regionProjects.length > 0 && (
+            <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-[11px] font-bold tabular-nums text-slate-300">
+              {regionProjects.length}
+            </span>
+          )}
+        </h3>
         {regionProjects.length === 0 ? (
           <p className="mt-2 rounded-lg border border-dashed border-slate-700 p-3 text-sm text-slate-500">
             لا توجد مشاريع قيد الإنجاز في هذه الولاية.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
+          // Unrestricted Regional Development: a region can now run any
+          // number of simultaneous projects, so this list is a bounded,
+          // scrollable container instead of growing the sidebar unboundedly.
+          <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto pe-1">
             {regionProjects.map((project) => (
               <li
                 key={project.instanceId}

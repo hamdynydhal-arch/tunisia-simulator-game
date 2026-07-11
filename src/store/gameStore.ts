@@ -13,11 +13,10 @@ import type {
   Region,
   RegionId,
 } from "@/types/game";
-import { INITIAL_REGIONS } from "@/data/governorates";
+import { INITIAL_REGIONS, REGION_GROUP } from "@/data/governorates";
 import { getProjectTemplate } from "@/data/projects";
 import { EVENT_CHANCE, GAME_EVENTS } from "@/data/events";
 import {
-  MAX_ACTIVE_PROJECTS_PER_REGION,
   applyMonthlyDrift,
   applyProjectCompletion,
   computeMonthlyFinances,
@@ -210,6 +209,43 @@ const HARD_STARTING_BUDGET_TND = 2_500;
 const HARD_STARTING_HARD_CURRENCY_USD = 0;
 const HARD_STARTING_SOVEREIGN_DEBT_TND = 1_000;
 const HARD_SHADOW_ECONOMY_MULTIPLIER = 1.3;
+
+/**
+ * The Neural Dilemma Engine (Phase 28): macro-economic interdependencies
+ * layered onto the existing per-region and per-tick mechanics. Every value
+ * here is a small, bounded, per-tick delta on the same scale as the drift/
+ * trap constants above (single-digit points or a small fraction of a
+ * point), by design — so no one mechanic can runaway-spiral a campaign on
+ * its own; they only compound the way real statecraft trade-offs do.
+ */
+// A. Spatial Butterfly Effect — same-REGION_GROUP "neighbors".
+/** A region booms (spills over to its group) once it runs more than this
+ *  many simultaneous projects, or once this developed. */
+const SPILLOVER_PROJECT_COUNT_THRESHOLD = 2;
+const SPILLOVER_DEVELOPMENT_THRESHOLD = 70;
+const SPILLOVER_DEVELOPMENT_BOOST_PER_NEIGHBOR = 0.4;
+const SPILLOVER_SECURITY_BOOST_PER_NEIGHBOR = 0.3;
+/** National max-min developmentIndex gap beyond which marginalization bites. */
+const INEQUALITY_GAP_THRESHOLD = 30;
+/** Bottom share of governorates (by developmentIndex) treated as marginalized. */
+const INEQUALITY_MARGINALIZED_SHARE = 0.3;
+/** stateSatisfaction penalty per point the gap exceeds the threshold by —
+ *  a severity-scaled bleed, not raw exponential growth: bounded and tunable
+ *  so historical inequality can never alone instant-collapse a campaign. */
+const INEQUALITY_SATISFACTION_PENALTY_PER_GAP_POINT = 0.1;
+// B. Overheating Economy — excess nationwide construction outpaces
+// hard-currency-backed demand (a two-tier drag, mirroring the Prosperity
+// Traps' own tiered-threshold style above).
+const OVERHEATING_PROJECT_THRESHOLD = 10;
+const OVERHEATING_PROJECT_SEVERE_THRESHOLD = 20;
+const OVERHEATING_PURCHASING_POWER_DRAG = 1;
+const OVERHEATING_PURCHASING_POWER_SEVERE_DRAG = 2;
+// C. Credibility-Debt Nexus.
+/** stateCredibility lost per tick while sovereignDebt exceeds the treasury. */
+const CREDIBILITY_DEBT_DECAY = 0.5;
+/** Below this credibility, foreign capital starts quietly fleeing. */
+const LOW_CREDIBILITY_THRESHOLD = 30;
+const LOW_CREDIBILITY_CAPITAL_FLIGHT_PER_POINT_USD = 0.2;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
@@ -1062,7 +1098,7 @@ export const useGameStore = create<GameStore>()(
         if (!template) {
           return false;
         }
-        const { gameState, activeProjects, regions } = get();
+        const { gameState, regions } = get();
         if (template.requiresCoastal && !regions[regionId].isCoastal) {
           return false;
         }
@@ -1079,12 +1115,10 @@ export const useGameStore = create<GameStore>()(
         ) {
           return false;
         }
-        const regionActiveCount = activeProjects.filter(
-          (project) => project.regionId === regionId,
-        ).length;
-        if (regionActiveCount >= MAX_ACTIVE_PROJECTS_PER_REGION) {
-          return false;
-        }
+        // Unrestricted Regional Development: a region may run any number of
+        // simultaneous projects, gated only by budget/reserves below (see
+        // Phase 28's Overheating Economy mechanic in advanceTime for the
+        // macro-level check on excessive nationwide construction).
         if (
           gameState.totalBudget < template.costTND ||
           gameState.hardCurrency < template.costUSD
@@ -1147,6 +1181,49 @@ export const useGameStore = create<GameStore>()(
               Math.floor(state.gameState.sovereignDebt * DEBT_SERVICE_RATE),
             );
           }
+
+          // Macro Interdependencies (Phase 28): project activity and the
+          // credibility-debt nexus, from the pre-tick snapshot — computed
+          // first so they feed the rest of this tick's math (spillovers,
+          // purchasing power, hard currency) below.
+          const activeProjectCountByRegion: Partial<Record<RegionId, number>> =
+            {};
+          for (const project of state.activeProjects) {
+            activeProjectCountByRegion[project.regionId] =
+              (activeProjectCountByRegion[project.regionId] ?? 0) + 1;
+          }
+          const totalActiveProjectsNationwide = state.activeProjects.length;
+
+          // B. Overheating Economy: excessive simultaneous nationwide
+          // construction outpaces hard-currency-backed demand, dragging
+          // purchasing power down (folded into nextPurchasingPowerIndex
+          // alongside the existing anti-monopoly retaliation, below).
+          const overheatingPurchasingPowerDrag =
+            totalActiveProjectsNationwide > OVERHEATING_PROJECT_SEVERE_THRESHOLD
+              ? OVERHEATING_PURCHASING_POWER_SEVERE_DRAG
+              : totalActiveProjectsNationwide > OVERHEATING_PROJECT_THRESHOLD
+                ? OVERHEATING_PURCHASING_POWER_DRAG
+                : 0;
+
+          // C. Credibility-Debt Nexus: debt exceeding the treasury's own
+          // balance quietly erodes trust in the state every month it
+          // persists. A credibility already critically low (< 30) reads as
+          // eroded foreign confidence — a passive hard-currency drain
+          // (capital flight) scaling with how far below that line it sits.
+          const nextStateCredibility =
+            state.gameState.sovereignDebt > state.gameState.totalBudget
+              ? Math.max(
+                  0,
+                  state.gameState.stateCredibility - CREDIBILITY_DEBT_DECAY,
+                )
+              : state.gameState.stateCredibility;
+          const capitalFlightDelta =
+            state.gameState.stateCredibility < LOW_CREDIBILITY_THRESHOLD
+              ? -(
+                  (LOW_CREDIBILITY_THRESHOLD - state.gameState.stateCredibility) *
+                  LOW_CREDIBILITY_CAPITAL_FLIGHT_PER_POINT_USD
+                )
+              : 0;
 
           // Finances for the elapsing month, from the pre-tick state.
           const { income, net, hardCurrencyNet } = computeMonthlyFinances(
@@ -1243,6 +1320,59 @@ export const useGameStore = create<GameStore>()(
             }
           }
 
+          // A. Spatial Butterfly Effect — positive spillover (agglomeration/
+          // trickle-down): a region running more than SPILLOVER_PROJECT_
+          // COUNT_THRESHOLD simultaneous projects, or already highly
+          // developed, radiates a small passive boost to every OTHER
+          // governorate sharing its REGION_GROUP ("neighbors"), simulating
+          // cross-border job creation and commercial spillover. Booming
+          // regions in the same group stack (each counts separately).
+          {
+            const boomingRegionIds: RegionId[] = [];
+            for (const region of Object.values(regions)) {
+              const projectCount = activeProjectCountByRegion[region.id] ?? 0;
+              if (
+                projectCount > SPILLOVER_PROJECT_COUNT_THRESHOLD ||
+                region.developmentIndex > SPILLOVER_DEVELOPMENT_THRESHOLD
+              ) {
+                boomingRegionIds.push(region.id);
+              }
+            }
+            if (boomingRegionIds.length > 0) {
+              let spilled: Record<RegionId, Region> | null = null;
+              for (const region of Object.values(regions)) {
+                let boomingNeighbors = 0;
+                for (const boomingId of boomingRegionIds) {
+                  if (
+                    boomingId !== region.id &&
+                    REGION_GROUP[boomingId] === REGION_GROUP[region.id]
+                  ) {
+                    boomingNeighbors += 1;
+                  }
+                }
+                if (boomingNeighbors > 0) {
+                  spilled ??= { ...regions };
+                  spilled[region.id] = {
+                    ...region,
+                    developmentIndex: Math.min(
+                      100,
+                      region.developmentIndex +
+                        boomingNeighbors * SPILLOVER_DEVELOPMENT_BOOST_PER_NEIGHBOR,
+                    ),
+                    securityLevel: Math.min(
+                      100,
+                      region.securityLevel +
+                        boomingNeighbors * SPILLOVER_SECURITY_BOOST_PER_NEIGHBOR,
+                    ),
+                  };
+                }
+              }
+              if (spilled) {
+                regions = spilled;
+              }
+            }
+          }
+
           // Demographics: natural growth + internal migration / brain drain.
           regions = applyDemographics(regions);
 
@@ -1334,6 +1464,57 @@ export const useGameStore = create<GameStore>()(
             }
           }
 
+          // A. Spatial Butterfly Effect — negative marginalization: once the
+          // national developmentIndex gap (richest minus poorest) exceeds
+          // INEQUALITY_GAP_THRESHOLD, the bottom 30% least-developed
+          // governorates suffer a severity-scaled satisfaction penalty
+          // (bounded, not raw exponential growth — see the constant's own
+          // comment), reflecting perceived regional inequality feeding
+          // unrest. Runs immediately before the strike loop so this month's
+          // inequality can itself tip a marginalized region into a strike,
+          // mirroring how Inflation Bleed above already does the same.
+          // Rebel-held governorates are excluded, matching the strike loop's
+          // own guard below.
+          {
+            const developmentValues = Object.values(regions).map(
+              (region) => region.developmentIndex,
+            );
+            const developmentGap =
+              Math.max(...developmentValues) - Math.min(...developmentValues);
+            if (developmentGap > INEQUALITY_GAP_THRESHOLD) {
+              const marginalizedCount = Math.max(
+                1,
+                Math.floor(
+                  developmentValues.length * INEQUALITY_MARGINALIZED_SHARE,
+                ),
+              );
+              const marginalizedIds = new Set(
+                Object.values(regions)
+                  .slice()
+                  .sort((a, b) => a.developmentIndex - b.developmentIndex)
+                  .slice(0, marginalizedCount)
+                  .map((region) => region.id),
+              );
+              const penalty =
+                (developmentGap - INEQUALITY_GAP_THRESHOLD) *
+                INEQUALITY_SATISFACTION_PENALTY_PER_GAP_POINT;
+              const marginalized = { ...regions };
+              for (const id of marginalizedIds) {
+                if (regions[id].isUnderRebelControl) {
+                  continue;
+                }
+                marginalized[id] = {
+                  ...regions[id],
+                  stateSatisfaction: Math.max(
+                    0,
+                    regions[id].stateSatisfaction - penalty,
+                  ),
+                };
+              }
+              regions = marginalized;
+            }
+          }
+
           // Organized resistance: satisfaction collapsing below 20 triggers a
           // general strike (0 GDP/taxes via `monthlyRegionIncome`). Unlike the
           // other systemic loops this does NOT auto-resolve — only the
@@ -1402,7 +1583,14 @@ export const useGameStore = create<GameStore>()(
           // grinding oligarchyControl down.
           let oligarchyBudgetDelta = 0;
           let nextOligarchyControl = state.gameState.oligarchyControl;
-          let nextPurchasingPowerIndex = state.gameState.purchasingPowerIndex;
+          // B. Overheating Economy's drag (computed above, from the
+          // pre-tick project count) folds in here alongside the
+          // anti-monopoly retaliation below — both are purchasingPowerIndex
+          // deltas for this same tick.
+          let nextPurchasingPowerIndex = Math.max(
+            0,
+            state.gameState.purchasingPowerIndex - overheatingPurchasingPowerDrag,
+          );
           if (
             state.gameState.oligarchyControl > OLIGARCHY_CONTROL_THRESHOLD &&
             !state.gameState.antiMonopolyActive
@@ -1434,12 +1622,14 @@ export const useGameStore = create<GameStore>()(
             state.gameState.publicWageBurden +
             debtServiceDelta;
           // Exports renew reserves; advanced-project USD upkeep drains them.
-          // Harka exits add their own diplomatic-friction drain on top.
+          // Harka exits and (C.) critically low credibility's capital
+          // flight add their own drains on top.
           const nextHardCurrency =
             state.gameState.hardCurrency +
             hardCurrencyNet +
             political.hardCurrencyDelta +
-            harkaResult.hardCurrencyDelta;
+            harkaResult.hardCurrencyDelta +
+            capitalFlightDelta;
           const nextTechLevel = state.gameState.techLevel + techGain;
           const metrics = computeNationalMetrics(regions);
 
@@ -1530,6 +1720,7 @@ export const useGameStore = create<GameStore>()(
               purchasingPowerIndex: nextPurchasingPowerIndex,
               nationalUnionTruce: nextNationalUnionTruce,
               debtGracePeriod: nextDebtGracePeriod,
+              stateCredibility: nextStateCredibility,
               isVictorious,
             },
             activeProjects: ticked.filter(
