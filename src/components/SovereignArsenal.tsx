@@ -21,6 +21,7 @@ const WESTERN_FRICTION_RATE = 4;
 
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
 const OLIGARCHY_CORRUPTION_DRAIN_TND = 50;
+const OLIGARCHY_BLEED_RATE_PCT = 20;
 const ANTI_MONOPOLY_CONTROL_PROGRESS = 5;
 const ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION = 10;
 
@@ -267,7 +268,7 @@ export default function SovereignArsenal() {
           title={
             antiMonopolyActive
               ? `الحملة جارية: -${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية شهريًا (انتقام الكارتيلات) مقابل -${ANTI_MONOPOLY_CONTROL_PROGRESS}٪ سيطرة الكارتيلات شهريًا`
-              : `تحذير: إبقاء الوضع كما هو يستنزف -${OLIGARCHY_CORRUPTION_DRAIN_TND}م د.ت شهريًا (فساد واحتكار) طالما السيطرة فوق ${OLIGARCHY_CONTROL_THRESHOLD}٪. إطلاق الحملة يوقف النزيف لكن الكارتيلات تنتقم بتهريب البضائع: -${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية شهريًا`
+              : `تحذير: إبقاء الوضع كما هو يستنزف -${OLIGARCHY_CORRUPTION_DRAIN_TND}م د.ت أو ${OLIGARCHY_BLEED_RATE_PCT}٪ من العائد الجبائي الوطني شهريًا (أيهما أعلى) طالما السيطرة فوق ${OLIGARCHY_CONTROL_THRESHOLD}٪ — الكارتيلات تكبر مع نجاحك. إطلاق الحملة يوقف النزيف لكن الكارتيلات تنتقم بتهريب البضائع: -${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية شهريًا`
           }
           className={`mt-3 w-full rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${
             antiMonopolyActive
@@ -285,7 +286,7 @@ export default function SovereignArsenal() {
           >
             {antiMonopolyActive
               ? `-${ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION} مقدرة شرائية/شهر · -${ANTI_MONOPOLY_CONTROL_PROGRESS}٪ سيطرة الكارتيلات/شهر`
-              : `بدون حملة: -${OLIGARCHY_CORRUPTION_DRAIN_TND}م د.ت/شهر فسادًا`}
+              : `بدون حملة: -${OLIGARCHY_CORRUPTION_DRAIN_TND}م د.ت أو ${OLIGARCHY_BLEED_RATE_PCT}٪ من العائد الجبائي/شهر (أيهما أعلى)`}
           </span>
         </button>
       </div>

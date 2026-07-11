@@ -127,12 +127,28 @@ const INFLATION_BLEED_PER_10_POINTS = 2;
 
 /** Above this oligarchy grip, absent a campaign, corruption bleeds the budget. */
 const OLIGARCHY_CONTROL_THRESHOLD = 50;
-/** Monthly corruption/monopoly drain on the budget, million TND. */
+/** Floor of the monthly corruption/monopoly drain, million TND — the
+ *  cartels never take less than this even in a poor month. */
 const OLIGARCHY_CORRUPTION_DRAIN_TND = 50;
+/** Share of national tax revenue the cartels skim instead, if larger. */
+const OLIGARCHY_BLEED_RATE = 0.2;
 /** Monthly oligarchyControl progress while the campaign is active. */
 const ANTI_MONOPOLY_CONTROL_PROGRESS = 5;
 /** Monthly purchasing-power retaliation from cartels while the campaign is active. */
 const ANTI_MONOPOLY_PURCHASING_POWER_RETALIATION = 10;
+
+/** Prosperity Trap 1 (Tocqueville effect): rising expectations sour
+ *  satisfaction once a region is genuinely developed. */
+const TOCQUEVILLE_THRESHOLD = 75;
+const TOCQUEVILLE_PENALTY = 3;
+const TOCQUEVILLE_HIGH_THRESHOLD = 90;
+const TOCQUEVILLE_HIGH_PENALTY = 5;
+/** Prosperity Trap 2 (industrial burnout): infrastructure wears out faster
+ *  than it can coast once a region is highly developed. */
+const BURNOUT_THRESHOLD = 80;
+const BURNOUT_PENALTY = 1;
+const BURNOUT_HIGH_THRESHOLD = 95;
+const BURNOUT_HIGH_PENALTY = 2;
 
 /** IMF/Western emergency loan: minimum alignment required to qualify. */
 const EMERGENCY_LOAN_MIN_ALIGNMENT = 0;
@@ -812,7 +828,7 @@ export const useGameStore = create<GameStore>()(
           }
 
           // Finances for the elapsing month, from the pre-tick state.
-          const { net, hardCurrencyNet } = computeMonthlyFinances(
+          const { income, net, hardCurrencyNet } = computeMonthlyFinances(
             state.regions,
             state.activeProjects,
             state.completedProjects,
@@ -864,6 +880,46 @@ export const useGameStore = create<GameStore>()(
               drifted[region.id] = applyMonthlyDrift(drifted[region.id]);
             }
             regions = drifted;
+          }
+
+          // Prosperity Traps: late-game scaling challenges so success stops
+          // being linear. Rising expectations (Tocqueville effect) sour
+          // satisfaction in genuinely developed regions, and their
+          // infrastructure burns out faster than it can coast — both force
+          // constant reinvestment instead of a one-time snowball to 100.
+          {
+            let trapped: Record<RegionId, Region> | null = null;
+            for (const region of Object.values(regions)) {
+              const satisfactionPenalty =
+                region.developmentIndex >= TOCQUEVILLE_HIGH_THRESHOLD
+                  ? TOCQUEVILLE_HIGH_PENALTY
+                  : region.developmentIndex >= TOCQUEVILLE_THRESHOLD
+                    ? TOCQUEVILLE_PENALTY
+                    : 0;
+              const burnoutPenalty =
+                region.developmentIndex >= BURNOUT_HIGH_THRESHOLD
+                  ? BURNOUT_HIGH_PENALTY
+                  : region.developmentIndex >= BURNOUT_THRESHOLD
+                    ? BURNOUT_PENALTY
+                    : 0;
+              if (satisfactionPenalty > 0 || burnoutPenalty > 0) {
+                trapped ??= { ...regions };
+                trapped[region.id] = {
+                  ...region,
+                  stateSatisfaction: Math.max(
+                    0,
+                    region.stateSatisfaction - satisfactionPenalty,
+                  ),
+                  developmentIndex: Math.max(
+                    0,
+                    region.developmentIndex - burnoutPenalty,
+                  ),
+                };
+              }
+            }
+            if (trapped) {
+              regions = trapped;
+            }
           }
 
           // Demographics: natural growth + internal migration / brain drain.
@@ -1017,9 +1073,12 @@ export const useGameStore = create<GameStore>()(
           }
 
           // Rentier Oligarchy: entrenched cartel control quietly bleeds the
-          // budget every month unless the state is actively fighting it; the
-          // fight itself invites retaliation against purchasing power while
-          // steadily grinding oligarchyControl down.
+          // budget every month unless the state is actively fighting it —
+          // and it scales with success: the cartels skim 20% of national tax
+          // revenue, or the 50M TND floor, whichever is higher, so a thriving
+          // economy doesn't just out-earn the corruption. The fight itself
+          // invites retaliation against purchasing power while steadily
+          // grinding oligarchyControl down.
           let oligarchyBudgetDelta = 0;
           let nextOligarchyControl = state.gameState.oligarchyControl;
           let nextPurchasingPowerIndex = state.gameState.purchasingPowerIndex;
@@ -1027,7 +1086,10 @@ export const useGameStore = create<GameStore>()(
             state.gameState.oligarchyControl > OLIGARCHY_CONTROL_THRESHOLD &&
             !state.gameState.antiMonopolyActive
           ) {
-            oligarchyBudgetDelta = -OLIGARCHY_CORRUPTION_DRAIN_TND;
+            oligarchyBudgetDelta = -Math.max(
+              OLIGARCHY_CORRUPTION_DRAIN_TND,
+              Math.floor(income * OLIGARCHY_BLEED_RATE),
+            );
           }
           if (state.gameState.antiMonopolyActive) {
             nextOligarchyControl = Math.max(

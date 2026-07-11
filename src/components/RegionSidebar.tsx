@@ -179,6 +179,13 @@ export default function RegionSidebar() {
             </dd>
           </div>
         </div>
+
+        {region.developmentIndex >= 75 && (
+          <p className="mt-3 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300">
+            ✨ ضريبة الرخاء: توقعات شعبية عالية واستهلاك سريع للبنية التحتية
+          </p>
+        )}
+
         {region.currentNeeds.length > 0 && (
           <div>
             <dt className="text-xs text-slate-400">الاحتياجات الحالية</dt>
