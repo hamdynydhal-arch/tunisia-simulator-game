@@ -202,9 +202,12 @@ interface GameStore {
   timeRunning: boolean;
   timeSpeed: 1 | 2 | 3;
   dashboardOpen: boolean;
+  /** National Crisis Center overlay; transient UI state. */
+  crisisCenterOpen: boolean;
   toggleTimeRunning: () => void;
   setTimeSpeed: (speed: 1 | 2 | 3) => void;
   toggleDashboard: () => void;
+  toggleCrisisCenter: () => void;
   selectRegion: (id: RegionId | null) => void;
   dismissNotice: (instanceId: string) => void;
   /** Closes the socio-political modal and lets the game loop resume. */
@@ -327,6 +330,7 @@ export const useGameStore = create<GameStore>()(
       timeRunning: false,
       timeSpeed: 1,
       dashboardOpen: false,
+      crisisCenterOpen: false,
 
       selectRegion: (id) => set({ selectedRegionId: id }),
 
@@ -337,6 +341,9 @@ export const useGameStore = create<GameStore>()(
 
       toggleDashboard: () =>
         set((state) => ({ dashboardOpen: !state.dashboardOpen })),
+
+      toggleCrisisCenter: () =>
+        set((state) => ({ crisisCenterOpen: !state.crisisCenterOpen })),
 
       dismissNotice: (instanceId) =>
         set((state) => ({
@@ -1219,6 +1226,7 @@ export const useGameStore = create<GameStore>()(
           selectedRegionId: null,
           timeRunning: false,
           dashboardOpen: false,
+          crisisCenterOpen: false,
         }),
     }),
     {

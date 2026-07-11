@@ -1,6 +1,7 @@
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import AutoAdvance from "@/components/AutoAdvance";
 import CompletionToasts from "@/components/CompletionToasts";
+import CrisisCenterModal from "@/components/CrisisCenterModal";
 import EventToast from "@/components/EventToast";
 import FloatingEffects from "@/components/FloatingEffects";
 import GameHud from "@/components/GameHud";
@@ -19,6 +20,7 @@ export default function Home() {
       <FloatingEffects />
       <PoliticalEventModal />
       <AnalyticsDashboard />
+      <CrisisCenterModal />
       <OutcomeScreen />
       <GameOverModal />
       <AutoAdvance />

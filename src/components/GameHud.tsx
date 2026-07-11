@@ -18,6 +18,19 @@ export default function GameHud() {
   const toggleTimeRunning = useGameStore((state) => state.toggleTimeRunning);
   const setTimeSpeed = useGameStore((state) => state.setTimeSpeed);
   const toggleDashboard = useGameStore((state) => state.toggleDashboard);
+  const toggleCrisisCenter = useGameStore((state) => state.toggleCrisisCenter);
+
+  const totalCrises = useMemo(
+    () =>
+      Object.values(regions).filter(
+        (region) =>
+          region.isStriking ||
+          region.activeHarka ||
+          region.activeInfiltration ||
+          region.shadowEconomyLevel > 50,
+      ).length,
+    [regions],
+  );
 
   const { net, hardCurrencyNet } = useMemo(
     () => computeMonthlyFinances(regions, activeProjects, completedProjects),
@@ -157,6 +170,28 @@ export default function GameHud() {
             {Math.round(national.stability)}/100
           </span>
         </div>
+        <button
+          type="button"
+          onClick={toggleCrisisCenter}
+          aria-label="المركز الوطني لإدارة الأزمات"
+          title={
+            totalCrises > 0
+              ? `${totalCrises} ولاية في أزمة — المركز الوطني لإدارة الأزمات`
+              : "المركز الوطني لإدارة الأزمات"
+          }
+          className={`relative rounded-md border px-2.5 py-1.5 text-sm transition-colors ${
+            totalCrises > 0
+              ? "animate-pulse border-red-500 bg-red-600/20 text-red-300 hover:bg-red-600/30"
+              : "border-slate-600 hover:bg-slate-800"
+          }`}
+        >
+          🚨
+          {totalCrises > 0 && (
+            <span className="absolute -top-1.5 -end-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+              {totalCrises}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={toggleDashboard}
