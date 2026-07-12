@@ -23,7 +23,7 @@ const STEPS: readonly TutorialStep[] = [
   {
     message: "جرس الإنذار 🚨. هنا تدير الأزمات والإضرابات وطنياً.",
     buttonLabel: "التالي",
-    position: "fixed right-4 top-20 w-[min(90vw,20rem)]",
+    position: "fixed bottom-24 left-1/2 w-[min(90vw,20rem)] -translate-x-1/2",
   },
   {
     message: "غرفة العمليات. من هنا تقترض، تفاوض النقابات، وتدير البنك المركزي.",

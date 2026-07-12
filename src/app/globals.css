@@ -80,6 +80,17 @@ body {
   background-color: rgb(71 85 105 / 0.9);
 }
 
+/* Hides the scrollbar on the mobile Resource Ribbon while keeping native
+   touch/momentum scrolling — it should read as a swipeable strip of pills,
+   not a panel with a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Dark-themed governorate name tooltip on the Leaflet map. */
 .region-tooltip {
   background: rgb(15 23 42 / 0.95);
