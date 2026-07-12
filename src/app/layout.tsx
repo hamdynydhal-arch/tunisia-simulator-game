@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   title: "محاكي تونس",
   description: "لعبة استراتيجية شاملة تدور أحداثها في ولايات تونس الأربع والعشرين.",
   applicationName: "محاكي تونس",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

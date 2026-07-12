@@ -208,6 +208,11 @@ export default function GameSetupModal() {
 
         {step === 0 && (
           <div>
+            <img
+              src="/logo.svg"
+              alt="شعار محاكي تونس"
+              className="mx-auto mb-6 h-32 w-32 drop-shadow-2xl md:h-40 md:w-40"
+            />
             <h2 className="text-center text-xl font-bold text-slate-100">
               مراسم التنصيب
             </h2>

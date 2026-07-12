@@ -172,6 +172,7 @@ export default function GameHud() {
               <span className="md:hidden">⟲</span>
               <span className="hidden md:inline">بداية جديدة</span>
             </button>
+            <img src="/logo.svg" alt="شعار محاكي تونس" className="h-8 w-8 shrink-0" />
           </div>
         </div>
 
