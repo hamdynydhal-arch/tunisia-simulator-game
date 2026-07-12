@@ -62,7 +62,7 @@ export default function RegionSidebar() {
   return (
     <aside
       aria-label={`تفاصيل ولاية ${region.name}`}
-      className="fixed inset-x-0 bottom-24 z-10 max-h-[calc(70dvh-6rem)] animate-slide-in-up overflow-y-auto rounded-t-2xl border-t border-slate-700/50 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-md md:static md:z-auto md:max-h-none md:w-80 md:shrink-0 md:animate-slide-in-right md:rounded-none md:border-e md:border-t-0"
+      className="fixed inset-x-0 bottom-24 z-10 max-h-[calc(70dvh-6rem)] animate-slide-in-up overflow-y-auto rounded-t-2xl border-t border-slate-700/50 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-md md:static md:z-auto md:max-h-none md:w-80 md:shrink-0 md:animate-slide-in-right md:rounded-none md:border-e md:border-t-0 md:pt-[180px]"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
