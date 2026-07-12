@@ -8,11 +8,23 @@ import type { Difficulty } from "@/types/game";
 
 const DIFFICULTY_BADGE: Record<
   Difficulty,
-  { label: string; className: string }
+  { label: string; textClassName: string; borderClassName: string }
 > = {
-  easy: { label: "مسار شعبوي", className: "text-emerald-400" },
-  normal: { label: "حكومة تكنوقراط", className: "text-amber-400" },
-  hard: { label: "رجل دولة", className: "text-red-400" },
+  easy: {
+    label: "مسار شعبوي",
+    textClassName: "text-emerald-400",
+    borderClassName: "border-emerald-900",
+  },
+  normal: {
+    label: "حكومة تكنوقراط",
+    textClassName: "text-amber-400",
+    borderClassName: "border-amber-900",
+  },
+  hard: {
+    label: "رجل دولة",
+    textClassName: "text-red-400",
+    borderClassName: "border-red-900",
+  },
 };
 
 /** Shared shell for the Stats Ribbon's data-readout entries (Row 2 of the
@@ -98,7 +110,7 @@ export default function GameHud() {
         {/* Row 1 — Presidential Profile. Nothing here truncates: every line
             wraps (flex-wrap/break-words) instead of clipping with an
             ellipsis, so a long name or party never silently loses text. */}
-        <div className="flex w-full items-start justify-between p-3">
+        <div className="flex w-full items-center justify-between p-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {gameState.playerName || gameState.partyName ? (
               <>
@@ -106,44 +118,44 @@ export default function GameHud() {
                   <img
                     src={gameState.presidentAvatar}
                     alt={gameState.playerName}
-                    className="relative h-13 w-13 shrink-0 rounded-full object-cover ring-2 ring-slate-700/80 md:h-14 md:w-14"
+                    className="relative h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-slate-700/80 md:h-13 md:w-13"
                   />
                 ) : (
                   <div
                     role="img"
                     aria-label="لا توجد صورة للرئيس"
-                    className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-black/40 text-xl ring-2 ring-slate-700/80 md:h-14 md:w-14 md:text-2xl"
+                    className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/40 text-xl ring-2 ring-slate-700/80 md:h-13 md:w-13 md:text-2xl"
                   >
                     👤
                   </div>
                 )}
-                <div className="flex min-w-0 flex-1 flex-col justify-center">
-                  <div className="flex flex-wrap items-baseline gap-1.5 leading-none">
-                    <span className="text-[11px] text-slate-500">الرئيس:</span>
-                    <span className="break-words text-base font-extrabold text-white md:text-lg">
+                <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xs text-slate-400">الرئيس:</span>
+                    <span className="break-words text-base font-bold text-white md:text-lg">
                       {gameState.playerName}
                     </span>
                   </div>
                   {gameState.partyName && (
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <span className="break-words text-xs text-slate-300">
+                    <div className="flex flex-row items-center gap-2">
+                      <span className="min-w-0 flex-1 break-words text-xs text-slate-300">
                         {gameState.partyName}
                       </span>
                       <span
                         title="مستوى الصعوبة المختار عند التنصيب"
-                        className={`shrink-0 rounded border border-white/10 bg-black/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${DIFFICULTY_BADGE[gameState.difficulty].className}`}
+                        className={`shrink-0 rounded border bg-black/60 px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-widest ${DIFFICULTY_BADGE[gameState.difficulty].borderClassName} ${DIFFICULTY_BADGE[gameState.difficulty].textClassName}`}
                       >
                         {DIFFICULTY_BADGE[gameState.difficulty].label}
                       </span>
                     </div>
                   )}
                   {gameState.slogan && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-500/90">
+                    <div className="flex items-center gap-1.5 text-xs text-amber-500/90">
                       <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-base leading-none">
                         {gameState.philosophySymbol}
                       </span>
                       <span className="break-words">{gameState.slogan}</span>
-                    </p>
+                    </div>
                   )}
                 </div>
               </>
