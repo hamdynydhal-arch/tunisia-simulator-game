@@ -110,22 +110,21 @@ export default function GameHud() {
                   <img
                     src={gameState.presidentAvatar}
                     alt={gameState.playerName}
-                    className="h-8 w-8 shrink-0 rounded-full border-2 border-slate-400 object-cover md:h-10 md:w-10"
+                    className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-slate-700 md:h-14 md:w-14"
                   />
                 ) : (
                   <div
                     role="img"
                     aria-label="لا توجد صورة للرئيس"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-slate-400 bg-slate-800 text-base md:h-10 md:w-10 md:text-xl"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xl ring-2 ring-slate-700 md:h-14 md:w-14 md:text-2xl"
                   >
                     👤
                   </div>
                 )}
-                <div className="min-w-0">
+                <div className="flex min-w-0 flex-col justify-center">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <h1 className="truncate text-sm font-semibold tracking-wide text-slate-100 md:text-base">
+                    <h1 className="text-sm font-bold leading-tight text-white md:text-base">
                       الرئيس: {gameState.playerName}
-                      {gameState.partyName && ` | ${gameState.partyName}`}
                     </h1>
                     <span
                       title="مستوى الصعوبة المختار عند التنصيب"
@@ -134,6 +133,11 @@ export default function GameHud() {
                       {DIFFICULTY_BADGE[gameState.difficulty].label}
                     </span>
                   </div>
+                  {gameState.partyName && (
+                    <p className="mt-1 text-xs leading-tight text-slate-400">
+                      {gameState.partyName}
+                    </p>
+                  )}
                   {gameState.slogan && (
                     <p className="truncate text-[11px] italic text-slate-500 md:text-xs">
                       {gameState.philosophySymbol} {gameState.slogan}
