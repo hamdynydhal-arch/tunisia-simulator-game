@@ -15,10 +15,11 @@ const DIFFICULTY_BADGE: Record<
   hard: { label: "رجل دولة", className: "text-red-400" },
 };
 
-/** Shared shell for the Resource Ribbon's data-readout entries (Row 2 of the
- *  Top Command Bar) — a thin end-side divider between entries stands in for
- *  `divide-x`, which hardcodes a physical side and would read backwards
- *  under this app's `dir="rtl"`. */
+/** Shared shell for the Stats Ribbon's data-readout entries (Row 2 of the
+ *  Top Command Bar) — a thin end-side divider stands in for `divide-x`,
+ *  which hardcodes a physical side and would read backwards under this
+ *  app's `dir="rtl"`; `snap-start` gives the horizontal scroll a resting
+ *  point per item for thumb-friendly swiping. */
 function Pill({
   id,
   title,
@@ -32,7 +33,7 @@ function Pill({
     <div
       id={id}
       title={title}
-      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap border-e border-white/10 px-3 py-1.5 text-xs last:border-e-0 md:shrink"
+      className="flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-e border-white/10 pe-5 text-xs last:border-e-0 last:pe-0"
     >
       {children}
     </div>
@@ -85,130 +86,6 @@ export default function GameHud() {
   const inDebt = gameState.totalBudget < 0;
   const monthsToCollapse = 3 - gameState.criticalStabilityMonths;
 
-  // Rendered twice (see Row 2) so the mobile marquee can loop seamlessly;
-  // `idPrefix` is only set on the first copy so `#hud-budget` stays a
-  // single, valid element for FloatingEffects' getBoundingClientRect target.
-  const renderResourcePills = (idPrefix: string) => [
-    <Pill key={`${idPrefix}-budget`} id={idPrefix === "a" ? "hud-budget" : undefined} title="الميزانية العامة">
-      <span className="text-slate-400">🏦</span>
-      <span className="text-slate-400">الميزانية</span>
-      <span
-        className={`font-mono font-bold tabular-nums ${
-          inDebt
-            ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-            : "text-white"
-        }`}
-      >
-        {formatMillions(gameState.totalBudget, "TND")}
-      </span>
-      <span
-        dir="ltr"
-        title="صافي التدفق النقدي الشهري"
-        className={`font-mono text-[10px] font-bold tabular-nums ${
-          net >= 0
-            ? "text-emerald-400 shadow-lg shadow-emerald-500/20"
-            : "text-red-400"
-        }`}
-      >
-        {formatNetFlow(net)}
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-debt`} title="الدين السيادي المتراكم — يرتفع فقط، عبر القروض الطارئة">
-      <span className="text-slate-400">🧾</span>
-      <span className="text-slate-400">الدين</span>
-      <span className="font-mono font-bold tabular-nums text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]">
-        {formatMillions(gameState.sovereignDebt, "TND")}
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-fx`} title="العملة الصعبة">
-      <span className="text-slate-400">💱</span>
-      <span className="text-slate-400">العملة الصعبة</span>
-      <span
-        className={`font-mono font-bold tabular-nums ${
-          gameState.hardCurrency < 0 ? "text-red-500" : "text-white"
-        }`}
-      >
-        {formatMillions(gameState.hardCurrency, "USD")}
-      </span>
-      <span
-        dir="ltr"
-        title="صافي تدفق العملة الصعبة الشهري (الصادرات ناقص الصيانة)"
-        className={`font-mono text-[10px] font-bold tabular-nums ${
-          hardCurrencyNet >= 0 ? "text-sky-400" : "text-red-400"
-        }`}
-      >
-        {formatNetFlow(hardCurrencyNet, "USD")}
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-tech`} title="المستوى التكنولوجي الوطني — تراكم نقاط العلوم من الجامعات والأقطاب التكنولوجية">
-      <span className="text-slate-400">🔬</span>
-      <span className="text-slate-400">التكنولوجيا</span>
-      <span className="font-mono font-bold tabular-nums text-violet-300">
-        {Math.round(gameState.techLevel)}
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-satisfaction`} title="رضا المواطنين — معدّل وطني مرجّح بعدد سكان كل ولاية">
-      <span className="text-slate-400">🙂</span>
-      <span className="text-slate-400">الرضا</span>
-      <span
-        className={`font-mono font-bold tabular-nums ${
-          national.nationalSatisfaction >= 55
-            ? "text-emerald-400"
-            : national.nationalSatisfaction >= 40
-              ? "text-amber-300"
-              : "text-red-400"
-        }`}
-      >
-        {Math.round(national.nationalSatisfaction)}/100
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-belonging`} title="الانتماء الوطني — معدّل وطني مرجّح بعدد سكان كل ولاية">
-      <span className="text-slate-400">🇹🇳</span>
-      <span className="text-slate-400">الانتماء</span>
-      <span
-        className={`font-mono font-bold tabular-nums ${
-          national.overallNationalBelonging >= 60
-            ? "text-emerald-400"
-            : national.overallNationalBelonging >= 40
-              ? "text-amber-300"
-              : "text-red-400"
-        }`}
-      >
-        {Math.round(national.overallNationalBelonging)}/100
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-gdp`} title="الناتج الوطني">
-      <span className="text-slate-400">🏭</span>
-      <span className="text-slate-400">الناتج الوطني</span>
-      <span className="font-mono font-semibold tabular-nums text-white">
-        {formatMillions(national.gdpAnnual, "TND")}
-        <span className="text-[10px] font-normal text-slate-500"> سنويًا</span>
-      </span>
-    </Pill>,
-
-    <Pill key={`${idPrefix}-stability`} title="مزيج التشغيل والتنمية والأمن، مخصومًا منه عقوبة التفاوت بين الساحل والداخل">
-      <span className="text-slate-400">⚖️</span>
-      <span className="text-slate-400">الاستقرار</span>
-      <span
-        className={`font-mono font-bold tabular-nums ${
-          national.stability >= 65
-            ? "text-emerald-400"
-            : national.stability >= 45
-              ? "text-amber-300"
-              : "text-red-400"
-        }`}
-      >
-        {Math.round(national.stability)}/100
-      </span>
-    </Pill>,
-  ];
-
   return (
     <>
       <header className="pointer-events-none fixed inset-x-0 top-0 z-20 border-b border-white/5 bg-black/60 backdrop-blur-xl">
@@ -218,59 +95,60 @@ export default function GameHud() {
           </div>
         )}
 
-        {/* Row 1 — Identity */}
-        <div className="flex items-center justify-between gap-3 px-3 py-2 md:px-4">
-          <div className="flex min-w-0 items-center gap-3">
+        {/* Row 1 — Presidential Profile. Nothing here truncates: every line
+            wraps (flex-wrap/break-words) instead of clipping with an
+            ellipsis, so a long name or party never silently loses text. */}
+        <div className="flex w-full items-start justify-between p-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {gameState.playerName || gameState.partyName ? (
               <>
                 {gameState.presidentAvatar ? (
                   <img
                     src={gameState.presidentAvatar}
                     alt={gameState.playerName}
-                    className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-slate-700 md:h-14 md:w-14"
+                    className="relative h-13 w-13 shrink-0 rounded-full object-cover ring-2 ring-slate-700/80 md:h-14 md:w-14"
                   />
                 ) : (
                   <div
                     role="img"
                     aria-label="لا توجد صورة للرئيس"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/40 text-xl ring-2 ring-slate-700 md:h-14 md:w-14 md:text-2xl"
+                    className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full bg-black/40 text-xl ring-2 ring-slate-700/80 md:h-14 md:w-14 md:text-2xl"
                   >
                     👤
                   </div>
                 )}
-                {/* Golden Ratio hierarchy: Crown (name) / Faction (party +
-                    tag, one line) / Ideology (slogan). items-start keeps
-                    each line pinned to the reading-start edge — the
-                    physical right under this app's dir="rtl". */}
-                <div className="flex min-w-0 flex-col items-start justify-center gap-1">
-                  <h1 className="text-base font-extrabold leading-none text-white md:text-lg">
-                    الرئيس: {gameState.playerName}
-                  </h1>
+                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                  <div className="flex flex-wrap items-baseline gap-1.5 leading-none">
+                    <span className="text-[11px] text-slate-500">الرئيس:</span>
+                    <span className="break-words text-base font-extrabold text-white md:text-lg">
+                      {gameState.playerName}
+                    </span>
+                  </div>
                   {gameState.partyName && (
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-xs text-slate-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="break-words text-xs text-slate-300">
                         {gameState.partyName}
                       </span>
                       <span
                         title="مستوى الصعوبة المختار عند التنصيب"
-                        className={`shrink-0 rounded border border-white/10 bg-black/50 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${DIFFICULTY_BADGE[gameState.difficulty].className}`}
+                        className={`shrink-0 rounded border border-white/10 bg-black/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${DIFFICULTY_BADGE[gameState.difficulty].className}`}
                       >
                         {DIFFICULTY_BADGE[gameState.difficulty].label}
                       </span>
                     </div>
                   )}
                   {gameState.slogan && (
-                    <p className="flex min-w-0 items-center gap-1.5 truncate text-sm text-amber-500/90">
-                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-base leading-none md:h-5 md:w-5 md:text-lg">
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-500/90">
+                      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-base leading-none">
                         {gameState.philosophySymbol}
                       </span>
-                      <span className="truncate">{gameState.slogan}</span>
+                      <span className="break-words">{gameState.slogan}</span>
                     </p>
                   )}
                 </div>
               </>
             ) : (
-              <h1 className="truncate text-sm font-extrabold tracking-wide text-white md:text-base">
+              <h1 className="text-sm font-extrabold tracking-wide text-white md:text-base">
                 محاكي تونس
               </h1>
             )}
@@ -304,17 +182,135 @@ export default function GameHud() {
           </div>
         </div>
 
-        {/* Row 2 — Resource Ribbon, "the pulse of the nation": a
-            continuously auto-scrolling marquee on mobile (no user
-            interaction — the ribbon's content is duplicated back to back and
-            the whole track loops via the `marquee` keyframe in
-            globals.css), wraps and centers as a static readout on desktop. */}
-        <div className="overflow-hidden whitespace-nowrap px-3 pb-2 md:overflow-visible md:px-4">
-          <div className="flex w-max animate-[marquee_25s_linear_infinite] md:w-full md:animate-none md:flex-wrap md:justify-center">
-            <div className="flex shrink-0">{renderResourcePills("a")}</div>
-            <div aria-hidden="true" className="flex shrink-0 md:hidden">
-              {renderResourcePills("b")}
-            </div>
+        {/* Row 2 — Stats Ribbon: a static, purely user-swiped strip (zero
+            animation) with a snap point per item and a left-edge fade mask
+            hinting that more content continues past the visible edge. */}
+        <div className="relative w-full border-t border-white/5 bg-black/20">
+          <div
+            className="no-scrollbar flex snap-x items-center gap-5 overflow-x-auto overscroll-contain whitespace-nowrap px-3 py-2.5 pointer-events-auto"
+            style={{
+              maskImage: "linear-gradient(to right, transparent, black 5%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent, black 5%)",
+            }}
+          >
+            <Pill id="hud-budget" title="الميزانية العامة">
+              <span className="text-slate-400">🏦</span>
+              <span className="text-slate-400">الميزانية</span>
+              <span
+                className={`font-mono font-bold tabular-nums ${
+                  inDebt
+                    ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+                    : "text-white"
+                }`}
+              >
+                {formatMillions(gameState.totalBudget, "TND")}
+              </span>
+              <span
+                dir="ltr"
+                title="صافي التدفق النقدي الشهري"
+                className={`font-mono text-[10px] font-bold tabular-nums ${
+                  net >= 0
+                    ? "text-emerald-400 shadow-lg shadow-emerald-500/20"
+                    : "text-red-400"
+                }`}
+              >
+                {formatNetFlow(net)}
+              </span>
+            </Pill>
+
+            <Pill title="الدين السيادي المتراكم — يرتفع فقط، عبر القروض الطارئة">
+              <span className="text-slate-400">🧾</span>
+              <span className="text-slate-400">الدين</span>
+              <span className="font-mono font-bold tabular-nums text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+                {formatMillions(gameState.sovereignDebt, "TND")}
+              </span>
+            </Pill>
+
+            <Pill title="العملة الصعبة">
+              <span className="text-slate-400">💱</span>
+              <span className="text-slate-400">العملة الصعبة</span>
+              <span
+                className={`font-mono font-bold tabular-nums ${
+                  gameState.hardCurrency < 0 ? "text-red-500" : "text-white"
+                }`}
+              >
+                {formatMillions(gameState.hardCurrency, "USD")}
+              </span>
+              <span
+                dir="ltr"
+                title="صافي تدفق العملة الصعبة الشهري (الصادرات ناقص الصيانة)"
+                className={`font-mono text-[10px] font-bold tabular-nums ${
+                  hardCurrencyNet >= 0 ? "text-sky-400" : "text-red-400"
+                }`}
+              >
+                {formatNetFlow(hardCurrencyNet, "USD")}
+              </span>
+            </Pill>
+
+            <Pill title="المستوى التكنولوجي الوطني — تراكم نقاط العلوم من الجامعات والأقطاب التكنولوجية">
+              <span className="text-slate-400">🔬</span>
+              <span className="text-slate-400">التكنولوجيا</span>
+              <span className="font-mono font-bold tabular-nums text-violet-300">
+                {Math.round(gameState.techLevel)}
+              </span>
+            </Pill>
+
+            <Pill title="رضا المواطنين — معدّل وطني مرجّح بعدد سكان كل ولاية">
+              <span className="text-slate-400">🙂</span>
+              <span className="text-slate-400">الرضا</span>
+              <span
+                className={`font-mono font-bold tabular-nums ${
+                  national.nationalSatisfaction >= 55
+                    ? "text-emerald-400"
+                    : national.nationalSatisfaction >= 40
+                      ? "text-amber-300"
+                      : "text-red-400"
+                }`}
+              >
+                {Math.round(national.nationalSatisfaction)}/100
+              </span>
+            </Pill>
+
+            <Pill title="الانتماء الوطني — معدّل وطني مرجّح بعدد سكان كل ولاية">
+              <span className="text-slate-400">🇹🇳</span>
+              <span className="text-slate-400">الانتماء</span>
+              <span
+                className={`font-mono font-bold tabular-nums ${
+                  national.overallNationalBelonging >= 60
+                    ? "text-emerald-400"
+                    : national.overallNationalBelonging >= 40
+                      ? "text-amber-300"
+                      : "text-red-400"
+                }`}
+              >
+                {Math.round(national.overallNationalBelonging)}/100
+              </span>
+            </Pill>
+
+            <Pill title="الناتج الوطني">
+              <span className="text-slate-400">🏭</span>
+              <span className="text-slate-400">الناتج الوطني</span>
+              <span className="font-mono font-semibold tabular-nums text-white">
+                {formatMillions(national.gdpAnnual, "TND")}
+                <span className="text-[10px] font-normal text-slate-500"> سنويًا</span>
+              </span>
+            </Pill>
+
+            <Pill title="مزيج التشغيل والتنمية والأمن، مخصومًا منه عقوبة التفاوت بين الساحل والداخل">
+              <span className="text-slate-400">⚖️</span>
+              <span className="text-slate-400">الاستقرار</span>
+              <span
+                className={`font-mono font-bold tabular-nums ${
+                  national.stability >= 65
+                    ? "text-emerald-400"
+                    : national.stability >= 45
+                      ? "text-amber-300"
+                      : "text-red-400"
+                }`}
+              >
+                {Math.round(national.stability)}/100
+              </span>
+            </Pill>
           </div>
         </div>
       </header>

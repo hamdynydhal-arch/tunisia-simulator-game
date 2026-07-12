@@ -63,21 +63,6 @@
   }
 }
 
-/* The mobile Resource Ribbon's marquee: the ribbon's content is rendered
-   twice back to back and this shifts the doubled track by exactly one
-   copy's width (50% of the doubled total), so the moment it "resets" is
-   pixel-identical to the start — a seamless, gap-free loop. Referenced via
-   Tailwind's arbitrary `animate-[marquee_25s_linear_infinite]` utility,
-   which only needs the raw keyframe name to exist somewhere in scope. */
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
 /* Executive Command Center theme: a deep, sophisticated dark gradient
    instead of a flat fill (Phase 23 premium overhaul). Set directly on the
    plain `body` rule rather than relying on Tailwind's `bg-gradient-to-br`
