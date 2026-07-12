@@ -271,7 +271,7 @@ export default function GameSetupModal() {
                   type="text"
                   value={partyName}
                   onChange={(event) => setPartyName(event.target.value)}
-                  placeholder="مثال: حركة النهضة الوطنية"
+                  placeholder="مثال: حزب القوة"
                   className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500/50"
                 />
               </label>
