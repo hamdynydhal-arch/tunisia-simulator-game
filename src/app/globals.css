@@ -46,6 +46,21 @@
       transform: none;
     }
   }
+
+  --animate-grand-entrance: grand-entrance 0.7s ease-out;
+
+  /* The Sovereign Command Interface's majestic reveal — a slower, deeper
+     fade+slide-up than the snappy UI-panel animations above. */
+  @keyframes grand-entrance {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 /* Executive Command Center theme: a deep, sophisticated dark gradient

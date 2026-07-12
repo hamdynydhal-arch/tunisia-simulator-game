@@ -193,292 +193,327 @@ export default function GameSetupModal() {
         role="dialog"
         aria-modal="true"
         aria-label="مراسم التنصيب"
-        className="w-full max-w-xl animate-slide-in-down rounded-2xl border border-slate-700/50 bg-slate-900/80 p-6 shadow-2xl backdrop-blur-xl sm:p-8"
+        className="animate-grand-entrance relative w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-black p-6 shadow-2xl sm:p-8"
       >
-        <div className="mb-6 flex items-center justify-center gap-2">
-          {([0, 1, 2] as const).map((s) => (
-            <div
-              key={s}
-              className={`h-1.5 w-10 rounded-full transition-colors ${
-                s <= step ? "bg-sky-500" : "bg-slate-700"
-              }`}
-            />
-          ))}
-        </div>
+        {/* Cinematic Lighting: an ambient, breathing crimson glow behind the
+            whole interface — the "blood of history" against the void. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-red-900/15 blur-[120px]"
+        />
 
-        {step === 0 && (
-          <div>
-            <img
-              src="/logo.svg"
-              alt="شعار محاكي تونس"
-              className="mx-auto mb-6 h-32 w-32 drop-shadow-2xl md:h-40 md:w-40"
-            />
-            <h2 className="text-center text-xl font-bold text-slate-100">
-              مراسم التنصيب
-            </h2>
-            <p className="mt-1 text-center text-sm text-slate-400">
-              من أنت أيها الرئيس القادم؟
-            </p>
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center gap-4">
-                {avatar ? (
-                  <img
-                    src={avatar}
-                    alt="صورة الرئيس"
-                    className="h-16 w-16 rounded-full border-2 border-slate-500 object-cover"
-                  />
-                ) : (
-                  <div
-                    role="img"
-                    aria-label="لا توجد صورة"
-                    className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-600 bg-slate-800/60 text-2xl text-slate-500"
-                  >
-                    👤
-                  </div>
-                )}
-                <label className="cursor-pointer rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800">
-                  {avatar ? "تغيير الصورة" : "رفع صورة شخصية (اختياري)"}
+        <div className="relative">
+          <div className="mb-6 flex items-center justify-center gap-2">
+            {([0, 1, 2] as const).map((s) => (
+              <div
+                key={s}
+                className={`h-1.5 w-10 rounded-full transition-colors ${
+                  s <= step ? "bg-red-600" : "bg-white/10"
+                }`}
+              />
+            ))}
+          </div>
+
+          {step === 0 && (
+            <div>
+              <img
+                src="/logo.svg"
+                alt="شعار محاكي تونس"
+                className="mx-auto mb-6 h-32 w-32 drop-shadow-2xl md:h-40 md:w-40"
+              />
+              <h2 className="text-center text-xl font-bold tracking-wide text-white">
+                مراسم التنصيب
+              </h2>
+              <p className="mt-1 text-center text-sm text-white/50">
+                من أنت أيها الرئيس القادم؟
+              </p>
+              <div className="mt-6 space-y-5">
+                <div>
+                  <label className="group flex cursor-pointer flex-col items-center gap-3 sm:flex-row">
+                    <div className="relative h-20 w-20 shrink-0">
+                      {avatar ? (
+                        <img
+                          src={avatar}
+                          alt="صورة الرئيس"
+                          className="h-20 w-20 object-cover"
+                        />
+                      ) : (
+                        <div
+                          role="img"
+                          aria-label="لا توجد صورة"
+                          className="flex h-20 w-20 items-center justify-center bg-black text-3xl text-white/30"
+                        >
+                          👤
+                        </div>
+                      )}
+                      {/* Strategic Targeting Reticle: glowing corner brackets
+                          that contract inward on hover, like a target lock. */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute -left-1.5 -top-1.5 h-5 w-5 border-l-2 border-t-2 border-red-600 shadow-[0_0_8px_rgba(220,38,38,0.6)] transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -right-1.5 -top-1.5 h-5 w-5 border-r-2 border-t-2 border-red-600 shadow-[0_0_8px_rgba(220,38,38,0.6)] transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-1"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-1.5 -left-1.5 h-5 w-5 border-b-2 border-l-2 border-red-600 shadow-[0_0_8px_rgba(220,38,38,0.6)] transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-1.5 -right-1.5 h-5 w-5 border-b-2 border-r-2 border-red-600 shadow-[0_0_8px_rgba(220,38,38,0.6)] transition-transform duration-300 group-hover:-translate-x-1 group-hover:-translate-y-1"
+                      />
+                    </div>
+                    <span className="text-center text-xs font-bold uppercase tracking-widest text-white/40 transition-colors group-hover:text-white/70 sm:text-start">
+                      {avatar ? "تغيير الصورة" : "رفع صورة شخصية (اختياري)"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {avatarError && (
+                    <p className="mt-2 text-xs font-semibold text-red-500">
+                      تعذر تحميل الصورة — جرّب صورة أخرى.
+                    </p>
+                  )}
+                </div>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
+                    اسم الرئيس
+                  </span>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
+                    type="text"
+                    value={playerName}
+                    onChange={(event) => setPlayerName(event.target.value)}
+                    placeholder="مثال: الطيب الوزير"
+                    className="w-full border-b border-white/20 bg-transparent px-1 py-2 text-sm text-white/90 outline-none transition-all placeholder:text-white/25 focus:border-red-600 focus:text-white focus:shadow-[0_4px_20px_-2px_rgba(220,38,38,0.6)]"
                   />
                 </label>
-              </div>
-              {avatarError && (
-                <p className="text-xs font-semibold text-red-400">
-                  تعذر تحميل الصورة — جرّب صورة أخرى.
-                </p>
-              )}
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-400">
-                  اسم الرئيس
-                </span>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(event) => setPlayerName(event.target.value)}
-                  placeholder="مثال: الطيب الوزير"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500/50"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-400">
-                  اسم الحزب/الحركة
-                </span>
-                <input
-                  type="text"
-                  value={partyName}
-                  onChange={(event) => setPartyName(event.target.value)}
-                  placeholder="مثال: حزب القوة"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500/50"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-400">
-                  الشعار (اختياري)
-                </span>
-                <input
-                  type="text"
-                  value={slogan}
-                  onChange={(event) => setSlogan(event.target.value)}
-                  placeholder="مثال: تونس أولاً"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500/50"
-                />
-              </label>
-              <div>
-                <span className="mb-1 block text-xs font-semibold text-slate-400">
-                  الرمز الفكري
-                </span>
-                <div
-                  role="radiogroup"
-                  aria-label="الرمز الفكري"
-                  className="grid grid-cols-5 gap-2"
-                >
-                  {PHILOSOPHY_SYMBOLS.map((symbol) => (
-                    <button
-                      key={symbol.emoji}
-                      type="button"
-                      role="radio"
-                      aria-checked={philosophySymbol === symbol.emoji}
-                      title={symbol.label}
-                      onClick={() => setPhilosophySymbol(symbol.emoji)}
-                      className={`rounded-lg border p-2 text-xl transition-all ${
-                        philosophySymbol === symbol.emoji
-                          ? "border-sky-500 bg-sky-500/10 ring-1 ring-sky-500/50"
-                          : "border-slate-700 bg-slate-800/40 hover:bg-slate-800/70"
-                      }`}
-                    >
-                      {symbol.emoji}
-                    </button>
-                  ))}
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
+                    اسم الحزب/الحركة
+                  </span>
+                  <input
+                    type="text"
+                    value={partyName}
+                    onChange={(event) => setPartyName(event.target.value)}
+                    placeholder="مثال: حزب القوة"
+                    className="w-full border-b border-white/20 bg-transparent px-1 py-2 text-sm text-white/90 outline-none transition-all placeholder:text-white/25 focus:border-red-600 focus:text-white focus:shadow-[0_4px_20px_-2px_rgba(220,38,38,0.6)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
+                    الشعار (اختياري)
+                  </span>
+                  <input
+                    type="text"
+                    value={slogan}
+                    onChange={(event) => setSlogan(event.target.value)}
+                    placeholder="مثال: تونس أولاً"
+                    className="w-full border-b border-white/20 bg-transparent px-1 py-2 text-sm text-white/90 outline-none transition-all placeholder:text-white/25 focus:border-red-600 focus:text-white focus:shadow-[0_4px_20px_-2px_rgba(220,38,38,0.6)]"
+                  />
+                </label>
+                <div>
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
+                    الرمز الفكري
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-label="الرمز الفكري"
+                    className="grid grid-cols-5 gap-2"
+                  >
+                    {PHILOSOPHY_SYMBOLS.map((symbol) => (
+                      <button
+                        key={symbol.emoji}
+                        type="button"
+                        role="radio"
+                        aria-checked={philosophySymbol === symbol.emoji}
+                        title={symbol.label}
+                        onClick={() => setPhilosophySymbol(symbol.emoji)}
+                        className={`rounded-lg border p-2 text-xl transition-all duration-300 ${
+                          philosophySymbol === symbol.emoji
+                            ? "scale-105 border-red-600 bg-red-950/30 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] grayscale-0"
+                            : "border-white/10 bg-black text-white/50 grayscale hover:border-white/20"
+                        }`}
+                      >
+                        {symbol.emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              disabled={!personaValid}
-              title={
-                personaValid
-                  ? undefined
-                  : "أدخل اسم الرئيس واسم الحزب للمتابعة"
-              }
-              className="mt-6 w-full rounded-lg bg-gradient-to-r from-sky-600 to-sky-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/30 transition-all hover:from-sky-500 hover:to-sky-700 disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:ring-0"
-            >
-              التالي
-            </button>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div>
-            <h2 className="text-center text-xl font-bold text-slate-100">
-              اختر مستوى الحكم
-            </h2>
-            <p className="mt-1 text-center text-sm text-slate-400">
-              كل مسار يبدأ من ظروف اقتصادية مختلفة
-            </p>
-            <div className="mt-6 space-y-3">
-              {DIFFICULTIES.map((tier) => (
-                <button
-                  key={tier.key}
-                  type="button"
-                  onClick={() => setDifficulty(tier.key)}
-                  aria-pressed={difficulty === tier.key}
-                  className={`w-full rounded-lg border p-3 text-start transition-all ${
-                    difficulty === tier.key
-                      ? "border-sky-500 bg-sky-500/10 ring-1 ring-sky-500/50"
-                      : "border-slate-700 bg-slate-800/40 hover:bg-slate-800/70"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-sm font-bold text-slate-100">
-                    <span>{tier.icon}</span>
-                    {tier.label}
-                  </span>
-                  <span className="mt-1 block text-xs text-slate-400">
-                    {tier.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 flex gap-2">
               <button
                 type="button"
-                onClick={() => setStep(0)}
-                className="w-full rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800"
-              >
-                رجوع
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="w-full rounded-lg bg-gradient-to-r from-sky-600 to-sky-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/30 transition-all hover:from-sky-500 hover:to-sky-700"
+                onClick={() => setStep(1)}
+                disabled={!personaValid}
+                title={
+                  personaValid
+                    ? undefined
+                    : "أدخل اسم الرئيس واسم الحزب للمتابعة"
+                }
+                className="mt-6 w-full rounded-lg bg-gradient-to-r from-red-700 to-red-950 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-1 ring-red-600/30 transition-all hover:from-red-600 hover:to-red-900 disabled:cursor-not-allowed disabled:from-white/10 disabled:to-white/10 disabled:text-white/30 disabled:ring-0"
               >
                 التالي
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {step === 2 && (
-          <div>
-            <h2 className="text-center text-xl font-bold text-slate-100">
-              الإحاطة الرئاسية
-            </h2>
-            <p className="mt-1 text-center text-sm text-slate-400">
-              الرئيس {playerName} · {partyName}
-            </p>
-
-            <div className="mt-4 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                نقطة الانطلاق
-              </h3>
-              <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <dt className="text-slate-500">الميزانية</dt>
-                  <dd className="font-bold text-slate-100">
-                    {formatMillionsComma(stats.budget, "دينار")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">العملة الصعبة</dt>
-                  <dd className="font-bold text-slate-100">
-                    {formatMillionsComma(stats.hardCurrency, "دولار")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">الدين السيادي</dt>
-                  <dd className="font-bold text-slate-100">
-                    {formatMillionsComma(stats.sovereignDebt, "دينار")}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">الاقتصاد الموازي</dt>
-                  <dd className="font-bold text-slate-100">
-                    {stats.shadowNote}
-                  </dd>
-                </div>
-              </dl>
+          {step === 1 && (
+            <div>
+              <h2 className="text-center text-xl font-bold tracking-wide text-white">
+                اختر مستوى الحكم
+              </h2>
+              <p className="mt-1 text-center text-sm text-white/50">
+                كل مسار يبدأ من ظروف اقتصادية مختلفة
+              </p>
+              <div className="mt-6 space-y-3">
+                {DIFFICULTIES.map((tier) => (
+                  <button
+                    key={tier.key}
+                    type="button"
+                    onClick={() => setDifficulty(tier.key)}
+                    aria-pressed={difficulty === tier.key}
+                    className={`w-full rounded-lg border p-3 text-start transition-all duration-300 ${
+                      difficulty === tier.key
+                        ? "scale-[1.02] border-red-600 bg-red-950/30 shadow-[0_0_20px_rgba(220,38,38,0.35)]"
+                        : "border-white/10 bg-black hover:border-white/20 hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    <span
+                      className={`flex items-center gap-2 text-sm font-bold ${
+                        difficulty === tier.key ? "text-white" : "text-white/70"
+                      }`}
+                    >
+                      <span>{tier.icon}</span>
+                      {tier.label}
+                    </span>
+                    <span className="mt-1 block text-xs text-white/40">
+                      {tier.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(0)}
+                  className="w-full rounded-lg border border-white/10 px-4 py-2.5 text-sm font-bold text-white/50 transition-colors hover:bg-white/5"
+                >
+                  رجوع
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="w-full rounded-lg bg-gradient-to-r from-red-700 to-red-950 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/50 ring-1 ring-red-600/30 transition-all hover:from-red-600 hover:to-red-900"
+                >
+                  التالي
+                </button>
+              </div>
             </div>
+          )}
 
-            <div className="mt-3 rounded-xl border border-emerald-700/40 bg-emerald-950/20 p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-emerald-400">
-                شروط الانتصار (العبور التاريخي)
-              </h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-100/80">
-                <li>سداد الدين السيادي بالكامل (0)</li>
-                <li>استقرار وطني {WIN_STABILITY_THRESHOLD}+/100</li>
-                <li>صفر إضرابات عامة نشطة</li>
-                <li>مقدرة شرائية {WIN_PURCHASING_POWER_THRESHOLD}+/100</li>
-              </ul>
-            </div>
+          {step === 2 && (
+            <div>
+              <h2 className="text-center text-xl font-bold tracking-wide text-white">
+                الإحاطة الرئاسية
+              </h2>
+              <p className="mt-1 text-center text-sm text-white/50">
+                الرئيس {playerName} · {partyName}
+              </p>
 
-            <div className="mt-3 rounded-xl border border-red-700/40 bg-red-950/20 p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-red-400">
-                شروط السقوط
-              </h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-red-100/80">
-                <li>انهيار فوري: استقرار وطني دون {COLLAPSE_STABILITY}/100</li>
-                <li>
-                  إفلاس فوري: ميزانية الدولة تنخفض دون -{COLLAPSE_BUDGET_TND}م
-                  د.ت
-                </li>
-                <li>
-                  سقوط تدريجي: استقرار دون {SUSTAINED_COLLAPSE_STABILITY} لمدة{" "}
-                  {SUSTAINED_COLLAPSE_MONTHS} أشهر متتالية
-                </li>
-              </ul>
-            </div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">
+                  نقطة الانطلاق
+                </h3>
+                <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <dt className="text-white/40">الميزانية</dt>
+                    <dd className="font-bold text-white">
+                      {formatMillionsComma(stats.budget, "دينار")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">العملة الصعبة</dt>
+                    <dd className="font-bold text-white">
+                      {formatMillionsComma(stats.hardCurrency, "دولار")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">الدين السيادي</dt>
+                    <dd className="font-bold text-white">
+                      {formatMillionsComma(stats.sovereignDebt, "دينار")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-white/40">الاقتصاد الموازي</dt>
+                    <dd className="font-bold text-white">
+                      {stats.shadowNote}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
 
-            <div className="mt-6 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="w-full rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800"
-              >
-                رجوع
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  startGame(
-                    playerName.trim(),
-                    partyName.trim(),
-                    slogan.trim(),
-                    difficulty,
-                    avatar,
-                    philosophySymbol,
-                  )
-                }
-                className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-800 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/50 ring-1 ring-emerald-500/40 transition-all hover:from-emerald-500 hover:to-emerald-700"
-              >
-                أداء اليمين الدستورية
-              </button>
+              <div className="mt-3 rounded-xl border border-emerald-700/40 bg-emerald-950/20 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  شروط الانتصار (العبور التاريخي)
+                </h3>
+                <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-emerald-100/80">
+                  <li>سداد الدين السيادي بالكامل (0)</li>
+                  <li>استقرار وطني {WIN_STABILITY_THRESHOLD}+/100</li>
+                  <li>صفر إضرابات عامة نشطة</li>
+                  <li>مقدرة شرائية {WIN_PURCHASING_POWER_THRESHOLD}+/100</li>
+                </ul>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-red-700/40 bg-red-950/20 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-red-400">
+                  شروط السقوط
+                </h3>
+                <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-red-100/80">
+                  <li>انهيار فوري: استقرار وطني دون {COLLAPSE_STABILITY}/100</li>
+                  <li>
+                    إفلاس فوري: ميزانية الدولة تنخفض دون -{COLLAPSE_BUDGET_TND}م
+                    د.ت
+                  </li>
+                  <li>
+                    سقوط تدريجي: استقرار دون {SUSTAINED_COLLAPSE_STABILITY} لمدة{" "}
+                    {SUSTAINED_COLLAPSE_MONTHS} أشهر متتالية
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full rounded-lg border border-white/10 px-4 py-2.5 text-sm font-bold text-white/50 transition-colors hover:bg-white/5"
+                >
+                  رجوع
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    startGame(
+                      playerName.trim(),
+                      partyName.trim(),
+                      slogan.trim(),
+                      difficulty,
+                      avatar,
+                      philosophySymbol,
+                    )
+                  }
+                  className="w-full rounded-lg bg-gradient-to-r from-red-700 to-red-950 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] ring-1 ring-red-600/40 transition-all hover:from-red-600 hover:to-red-900"
+                >
+                  أداء اليمين الدستورية
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
