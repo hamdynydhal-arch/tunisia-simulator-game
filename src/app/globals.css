@@ -251,6 +251,49 @@ body {
   }
 }
 
+/* ── Sakan (سَكَن) ─────────────────────────────────────────────────────────
+   Co-regulation timer animations.
+   These are completely isolated from the game's animation palette.        */
+
+/* Soft colour-glow applied to the SVG ring stroke when the 15-min
+   timer completes. A slow, breathing warmth — not an alarm, not an alert. */
+@keyframes cr-complete-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(163, 177, 138, 0.4));
+    stroke: #a3b18a;
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(163, 177, 138, 0.75));
+    stroke: #8fa97a;
+  }
+}
+
+/* Gentle fade-in for the completion ambient text */
+@keyframes cr-fade-in-soft {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cr-ring-complete {
+  animation: cr-complete-glow 3.6s ease-in-out infinite;
+}
+
+.cr-complete-text {
+  animation: cr-fade-in-soft 1.2s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-ring-complete {
+    animation: none;
+    stroke: #a3b18a;
+    filter: none;
+  }
+  .cr-complete-text {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* "+توظيف" / "+ضرائب" rising from the map toward the HUD counters. */
 @keyframes float-to-hud {
   0% {

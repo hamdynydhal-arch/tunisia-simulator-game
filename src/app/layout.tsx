@@ -37,6 +37,10 @@ export const viewport: Viewport = {
  * Esri World Imagery tiles Leaflet loads may execute or connect. `unsafe-inline`
  * is required for the static export's inline hydration script and Leaflet's
  * injected styles (a static build has no nonce mechanism).
+ *
+ * Phase 2 addition: *.supabase.co (HTTPS) and wss://*.supabase.co (Supabase
+ * Realtime WebSocket) are added to connect-src so the Sakan Supabase client
+ * can reach the project API.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -45,7 +49,7 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://*.arcgisonline.com",
-  "connect-src 'self' https://server.arcgisonline.com https://*.arcgisonline.com",
+  "connect-src 'self' https://server.arcgisonline.com https://*.arcgisonline.com https://*.supabase.co wss://*.supabase.co",
   "font-src 'self' data:",
   "frame-ancestors 'none'",
 ].join("; ");

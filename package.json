@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "leaflet": "^1.9.4",
     "next": "16.2.10",
     "polylabel": "^2.1.0",

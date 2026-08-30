@@ -115,3 +115,97 @@ export interface SakanFlowState {
   /** True once the user has completed and agreed to the full covenant. */
   covenantAgreed: boolean;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PHASE 2 — Blind Intersection, Ambient Key, Co-regulation Timer
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── Preference IDs ─────────────────────────────────────────────────────────
+
+/**
+ * An opaque string ID referencing a specific desire, comfort level, or
+ * readiness signal from a future preference catalogue.
+ * The ID itself carries no PII; its meaning is only known to the catalogue,
+ * not to the Supabase row.
+ */
+export type PreferenceId = string;
+
+/**
+ * The in-memory plaintext form of what each partner encrypted in Supabase.
+ * These arrays are used ONLY inside the Blind Intersection computation and
+ * MUST be wiped from RAM immediately after the intersection is resolved.
+ */
+export interface PreferenceArray {
+  ids: PreferenceId[];
+}
+
+// ─── Blind Intersection ──────────────────────────────────────────────────────
+
+export type IntersectionStatus =
+  | "idle"        // hook not yet triggered
+  | "loading"     // fetching encrypted blobs from Supabase
+  | "decrypting"  // SubtleCrypto running
+  | "done"        // intersection ready (may be empty)
+  | "error";      // passphrase wrong or network failure
+
+export interface BlindIntersectionHookResult {
+  /** Only the matched IDs — unmatched data is wiped from state. */
+  intersection: PreferenceId[];
+  status: IntersectionStatus;
+  /** Arabic error message, suitable for display. Null when status !== 'error'. */
+  error: string | null;
+  /** Re-attempt the fetch+decrypt cycle. */
+  retry: () => void;
+}
+
+// ─── Wife Lock State ──────────────────────────────────────────────────────────
+
+/**
+ * Stored encrypted in Supabase column `lock_ciphertext`.
+ * The husband's client never reads this column.
+ * The intimacy track is shown only when `isIntimacyUnlocked === true`
+ * AND the decryption succeeds with the wife's private passphrase.
+ */
+export interface WifeLockState {
+  isIntimacyUnlocked: boolean;
+  /** ISO-8601 timestamp of when the wife activated the serenity key. Null if not yet activated. */
+  activatedAt: string | null;
+}
+
+// ─── Co-regulation Timer ─────────────────────────────────────────────────────
+
+export type CoRegTimerPhase =
+  | "idle"      // not started
+  | "running"   // timer counting
+  | "complete"; // 15 minutes elapsed
+
+export interface CoRegTimerState {
+  phase: CoRegTimerPhase;
+  /** Elapsed seconds — drives the SVG ring; NEVER rendered as a number in the UI. */
+  elapsedSeconds: number;
+  /** Fixed duration in seconds (default: 900 = 15 min). */
+  totalSeconds: number;
+}
+
+// ─── Supabase row shape ──────────────────────────────────────────────────────
+
+/**
+ * TypeScript mirror of the `sakan_sessions` Supabase table.
+ * All `*_ciphertext`, `*_iv`, `*_salt` fields hold Base64url-encoded strings.
+ * Null means the partner has not yet submitted their payload.
+ */
+export interface SakanSessionRow {
+  id: string;
+  couple_id: string;
+  husband_ciphertext: string | null;
+  husband_iv: string | null;
+  husband_salt: string | null;
+  wife_ciphertext: string | null;
+  wife_iv: string | null;
+  wife_salt: string | null;
+  lock_ciphertext: string | null;
+  lock_iv: string | null;
+  lock_salt: string | null;
+  created_at: string;
+  updated_at: string;
+}

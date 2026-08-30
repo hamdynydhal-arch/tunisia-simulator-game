@@ -164,3 +164,43 @@ export function clearPassphrase(): void {
     // ignore
   }
 }
+
+// ─── Memory hygiene helpers ───────────────────────────────────────────────────
+// Phase 2 addition — used by the Blind Intersection engine.
+
+/**
+ * Best-effort in-place wipe of a string array.
+ *
+ * JavaScript has no deterministic GC or zeroing semantics, so this is a
+ * defence-in-depth measure: the array is overwritten with empty strings and
+ * truncated to length 0 before the reference is released to GC.
+ *
+ * Callers MUST still null/undefined the local variable after calling this
+ * so the reference no longer reachable from userland code.
+ *
+ * @example
+ *   let ids: string[] = await decrypt(payload, pass);
+ *   const result = ids.filter(id => otherSet.has(id));
+ *   wipeArray(ids);
+ *   ids = []; // drop the reference
+ */
+export function wipeArray(arr: string[]): void {
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = "\x00".repeat(arr[i].length); // overwrite with null bytes
+  }
+  arr.length = 0;
+}
+
+/**
+ * Constructs an EncryptedPayload from individual Supabase column values.
+ * Returns null if any of the three fields is missing — indicating the
+ * partner has not yet submitted their payload.
+ */
+export function assemblePayload(
+  ciphertext: string | null,
+  iv: string | null,
+  salt: string | null
+): import("@/types/sakan").EncryptedPayload | null {
+  if (!ciphertext || !iv || !salt) return null;
+  return { ciphertext, iv, salt };
+}
