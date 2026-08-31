@@ -13,15 +13,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
-      - run: npm run build
+
+      - name: Build static export
+        run: npm run build
         env:
           NEXT_BASE_PATH: /tunisia-simulator-game
-      - uses: peaceiris/actions-gh-pages@v4
+          # Real Supabase keys are optional — the client is lazily initialised
+          # and only throws at runtime in the browser, never during static build.
+          # Provide fallback dummies so the build succeeds even without secrets.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
