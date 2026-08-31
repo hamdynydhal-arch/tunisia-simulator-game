@@ -5,35 +5,63 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Official GitHub Pages permissions required by actions/deploy-pages
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, cancel in-flight ones
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  # ── Build ────────────────────────────────────────────────────────────────────
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
+
+      # configure-pages with enablement:true activates GitHub Pages via the API
+      # and exports NEXT_BASE_PATH so Next.js uses the correct subpath.
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v4
+        with:
+          enablement: true
 
       - name: Build static export
         run: npm run build
         env:
           NEXT_BASE_PATH: /tunisia-simulator-game
-          # Real Supabase keys are optional — the client is lazily initialised
-          # and only throws at runtime in the browser, never during static build.
-          # Provide fallback dummies so the build succeeds even without secrets.
+          # Supabase client is lazily initialised — it never runs during `next build`.
+          # Provide dummy fallbacks so the build succeeds when real secrets are absent.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./out
-          publish_branch: gh-pages
+          path: ./out
+
+  # ── Deploy ───────────────────────────────────────────────────────────────────
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
