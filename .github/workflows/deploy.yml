@@ -5,25 +5,28 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Official GitHub Pages permissions required by actions/deploy-pages
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write   # peaceiris needs push access to gh-pages branch
+  pages: write      # Pages API (create/update source)
+  id-token: write   # OIDC token required by deploy-pages
 
-# Allow only one concurrent deployment, cancel in-flight ones
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  # ── Build ────────────────────────────────────────────────────────────────────
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: https://hamdynydhal-arch.github.io/tunisia-simulator-game/
+
     steps:
+      # ── 1. Source ─────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ── 2. Node ──────────────────────────────────────────────────────────
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
@@ -33,35 +36,52 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # configure-pages with enablement:true activates GitHub Pages via the API
-      # and exports NEXT_BASE_PATH so Next.js uses the correct subpath.
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v4
-        with:
-          enablement: true
-
+      # ── 3. Build ─────────────────────────────────────────────────────────
       - name: Build static export
         run: npm run build
         env:
           NEXT_BASE_PATH: /tunisia-simulator-game
-          # Supabase client is lazily initialised — it never runs during `next build`.
-          # Provide dummy fallbacks so the build succeeds when real secrets are absent.
+          # Supabase client is lazily initialised at runtime — it never executes
+          # during `next build`. Provide dummy fallbacks so CI never fails when
+          # real secrets have not been configured in the repo.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./out
+      # ── 4. Enable / point Pages at gh-pages branch (idempotent) ──────────
+      # The GITHUB_TOKEN with pages:write can create or update the Pages source.
+      # We try POST (create) first; if the site already exists, fall back to PUT
+      # (update).  Either way we continue — peaceiris in step 5 pushes the
+      # content regardless.
+      - name: Configure GitHub Pages source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Attempting to configure GitHub Pages source via API..."
+          # Try to create Pages site (fails gracefully if it already exists)
+          if gh api repos/${{ github.repository }}/pages \
+               --method POST \
+               -f source.branch=gh-pages \
+               -f source.path=/ \
+               --silent 2>/dev/null; then
+            echo "✅ Pages site created, source set to gh-pages branch."
+          # Try to update an existing Pages site to the branch source
+          elif gh api repos/${{ github.repository }}/pages \
+               --method PUT \
+               -f source.branch=gh-pages \
+               -f source.path=/ \
+               --silent 2>/dev/null; then
+            echo "✅ Pages source updated to gh-pages branch."
+          else
+            echo "⚠️  Pages API not available with this token — content will still"
+            echo "   be pushed to gh-pages branch by the next step."
+          fi
 
-  # ── Deploy ───────────────────────────────────────────────────────────────────
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # ── 5. Publish ./out to gh-pages branch ──────────────────────────────
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          publish_branch: gh-pages
+          # Ensure Jekyll doesn't strip _next/ directories
+          enable_jekyll: false
