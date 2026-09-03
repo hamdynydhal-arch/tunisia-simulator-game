@@ -191,51 +191,26 @@ export interface CoRegTimerState {
 
 /**
  * TypeScript mirror of the `sakan_sessions` Supabase table.
+ *
+ * Phase 4 reduction: the table now holds ONLY the two encrypted blobs used
+ * for the Blind Intersection engine.  All other personal data (lock state,
+ * anger plan, observations, forward-focus, conditions) migrated to each
+ * partner's own IndexedDB (`src/lib/sakan/idb.ts`).
+ *
  * All `*_ciphertext`, `*_iv`, `*_salt` fields hold Base64url-encoded strings.
- * Null means the partner has not yet submitted their payload.
+ * Null means the partner has not yet submitted their preference array.
  */
 export interface SakanSessionRow {
   id: string;
   couple_id: string;
 
-  // Phase 2 — Week-Zero preference arrays (blind intersection)
+  // Blind Intersection only — the only data that must cross devices
   husband_ciphertext: string | null;
   husband_iv: string | null;
   husband_salt: string | null;
   wife_ciphertext: string | null;
   wife_iv: string | null;
   wife_salt: string | null;
-
-  // Phase 2 — Wife-only intimacy lock
-  lock_ciphertext: string | null;
-  lock_iv: string | null;
-  lock_salt: string | null;
-
-  // Phase 3 — Husband's anger predictability plan (husband-only)
-  husband_anger_plan_ciphertext: string | null;
-  husband_anger_plan_iv: string | null;
-  husband_anger_plan_salt: string | null;
-
-  // Phase 3 — Husband's dopamine recovery log (append-only encrypted array)
-  husband_dopamine_log_ciphertext: string | null;
-  husband_dopamine_log_iv: string | null;
-  husband_dopamine_log_salt: string | null;
-
-  // Phase 3 — Forward-focus messages (one per role)
-  wife_message_ciphertext: string | null;
-  wife_message_iv: string | null;
-  wife_message_salt: string | null;
-  husband_message_ciphertext: string | null;
-  husband_message_iv: string | null;
-  husband_message_salt: string | null;
-
-  // Phase 3 — Conditions for blind intersection (each role's remembered contexts)
-  wife_conditions_ciphertext: string | null;
-  wife_conditions_iv: string | null;
-  wife_conditions_salt: string | null;
-  husband_conditions_ciphertext: string | null;
-  husband_conditions_iv: string | null;
-  husband_conditions_salt: string | null;
 
   created_at: string;
   updated_at: string;
@@ -259,28 +234,27 @@ export interface AngerPlan {
   savedAt: string; // ISO-8601
 }
 
-// ─── Dopamine Recovery Log ────────────────────────────────────────────────────
+// ─── Husband Observation Log ─────────────────────────────────────────────────
 
 /**
- * A single Small Victory entry.
+ * "ماذا لاحظت" — a single free-text observation entry.
  *
- * ███ NO CONSECUTIVE-DAY COUNTING ███
- * This record deliberately has NO "streakDay" or "dayNumber" field.
- * Each entry is independent.  Shame on relapse is prevented by design.
+ * ███ NO COUNTERS, NO STREAKS, NO VICTORY FRAMING ███
+ * Replaces the removed DopamineRecoveryLog / "small victories" component.
+ * Each entry is independent; no total count is ever shown in the UI.
+ * SPEC Rule 4: لا عدّادات ولا سلاسل ولا نسب إنجاز.
  */
-export interface DopamineLogEntry {
+export interface HusbandObservation {
   /** Locally generated unique ID (timestamp + random suffix). */
   id: string;
-  /** One of the three choice IDs from the quick-log options. */
-  choiceId: string;
-  /** Arabic label copied at save time (survives catalogue changes). */
-  choiceLabel: string;
-  /** ISO-8601 timestamp of when this victory was logged. */
-  loggedAt: string;
+  /** Free Arabic text — no label constrains what "noting" means. */
+  text: string;
+  /** ISO-8601 timestamp of when the observation was written. */
+  writtenAt: string;
 }
 
-/** The full encrypted log (array stored as one ciphertext). */
-export type DopamineLog = DopamineLogEntry[];
+/** The full observation log (array stored as one encrypted blob in IndexedDB). */
+export type HusbandObservationLog = HusbandObservation[];
 
 // ─── Forward-Focus Message ───────────────────────────────────────────────────
 
@@ -342,4 +316,158 @@ export interface PreferenceCatalogItem {
    * 3 = explicit agreements about shared presence
    */
   safetyLevel: SafetyLevel;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PHASE 4 — Engine: Card, State, KeyState
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── Key State (مفتاح الزوجة) ────────────────────────────────────────────────
+
+/**
+ * حالة المفتاح — مخزَّنة على جهاز الزوجة فقط (IndexedDB, key: 'KeyState').
+ *
+ * SPEC §3.3: "لا يُزامَن، ولا يُشتق، ولا يُستدل عليه من أي حقل آخر.
+ *            جهاز الزوج لا يملك هذا الحقل إطلاقاً."
+ *
+ * الضمان البنيوي: HusbandStoreKey في idb.ts لا يشمل 'KeyState'.
+ * اختبار القبول ٩ يؤكد هذا الضمان.
+ */
+export type KeyState = "locked" | "open";
+
+// ─── Card (بطاقة المعرفة) ─────────────────────────────────────────────────────
+
+export type CardAudience = "wife" | "husband";
+
+export type CardTradition =
+  | "sunni"       // السنّة
+  | "shia"        // الشيعة
+  | "shared"      // مشترك
+  | "clinical"    // سريري / طبي
+  | "conceptual"; // مفاهيمي
+
+export type CardKind =
+  | "text"          // نص تراثي من مصدر مُراجَع
+  | "concept"       // مفهوم معلوماتي
+  | "info"          // معلومة صرفة، intensity: 0 دائماً
+  | "micro_exercise" // تمرين قصير (≤ 120 ثانية)
+  | "reframe";      // إعادة تأطير معرفي
+
+export type CardAddress =
+  | "shame"
+  | "fear"
+  | "pain"
+  | "trust"
+  | "distance"
+  | "anger"
+  | "grief"
+  | "ignorance";
+
+/** سقف الشدة: 0 = معلومة صرفة، 5 = قرب جسدي. */
+export type CardIntensity = 0 | 1 | 2 | 3 | 4 | 5;
+
+/**
+ * شروط نطاقات الحالة التي تصلح فيها هذه البطاقة.
+ * أي حقل مفقود يعني "بلا قيد".
+ */
+export interface CardRequires {
+  safety?: [number, number];   // [min, max] — للزوجة
+  shame?: [number, number];    // [min, max] — للزوج
+  trust?: [number, number];    // [min, max] — للزوجة
+  distance?: [number, number]; // [min, max] — مشتق
+  flags?: string[];            // مثال: 'pain_reported', 'birth_complications'
+}
+
+/**
+ * بطاقة معرفة — الوحدة الذرية للمحتوى.
+ * SPEC §3.1.
+ *
+ * قاعدة المصدر: كل بطاقة `kind === 'text'` يجب أن يكون `source.reviewed === true`.
+ * البناء يفشل إن وُجدت بطاقة نصية بلا هذه العلامة (اختبار القبول ٧).
+ */
+export type Card = {
+  id: string;
+  audience: CardAudience;
+  kind: CardKind;
+
+  addresses: CardAddress[];
+
+  /**
+   * أي بطاقة intensity > 0 لا تُعرض أبداً قبل فتح المفتاح.
+   * SPEC §4.1: ceiling = 0 إذا KeyState === 'locked'.
+   */
+  intensity: CardIntensity;
+
+  requires?: CardRequires;
+  /** يُطبَّق قبل requires — أعلى أولوية. */
+  forbidden_when?: string[];
+
+  /** ≤ 120 ثانية — الجرعة الواحدة مقصودة. */
+  duration_sec: number;
+  /** نص عربي جاهز، لا قوالب برمجية. */
+  body: string;
+
+  /** إلزامي لكل kind === 'text'. بطاقة نصية بلا reviewed تفشل البناء. */
+  source?: {
+    name: string;
+    tradition: CardTradition;
+    grade?: string;
+    reviewed: true; // لا نوع آخر — false أو undefined يعني لم تُراجَع
+  };
+
+  followups?: string[];  // card ids
+  never_after?: string[]; // card ids
+};
+
+// ─── State (نموذج الحالة) ────────────────────────────────────────────────────
+
+/**
+ * مقياس الحالة — قيمة 0–100.
+ *
+ * SPEC §3.2:
+ * - safety: الزوجة (يُخزَّن على جهازها فقط)
+ * - shame:  الزوج (يُخزَّن على جهازه فقط)
+ * - trust:  الزوجة (يُخزَّن على جهازها فقط)
+ * - distance: مشتق (لا يُعرض لأي طرف — لا يُخزَّن بشكل مستقل)
+ */
+export type StateValue = number; // 0–100 inclusive
+
+/**
+ * حالة الزوجة — مخزَّنة في IndexedDB تحت key: 'State' في مخزن الزوجة.
+ */
+export interface WifeState {
+  safety: StateValue;   // 0–100
+  trust: StateValue;    // 0–100
+  updatedAt: string;    // ISO-8601
+}
+
+/**
+ * حالة الزوج — مخزَّنة في IndexedDB تحت key: 'State' في مخزن الزوج.
+ */
+export interface HusbandState {
+  shame: StateValue;    // 0–100
+  updatedAt: string;    // ISO-8601
+}
+
+/**
+ * إشارة استجابة الجلسة — تُستخدم لتحديث الحالة في حلقة التعلّم.
+ * لا تُخزَّن مستقلة — تُدمج في الحالة فور التسجيل.
+ */
+export type CardResponse =
+  | "accepted"    // قُبلت البطاقة وأُكملت
+  | "skipped"     // تُجوزت بصمت (بلا رسالة، بلا تسجيل فشل)
+  | "closed";     // أُغلق التطبيق أثناء عرضها (= skipped)
+
+/**
+ * سجل استجابة جلسة واحدة — يُستخدم في التعلّم.
+ * لا يُخزَّن بشكل دائم؛ يُدمَج في الحالة ثم يُتجاهَل.
+ */
+export interface SessionSignal {
+  cardId: string;
+  response: CardResponse;
+  /** تقييم راحة الطرف بعد البطاقة (اختياري، 1–5). لا يُعرض بشكل مجمَّع. */
+  comfortRating?: 1 | 2 | 3 | 4 | 5;
+  /** مدة الجلسة بالثواني. */
+  durationSec: number;
+  recordedAt: string; // ISO-8601
 }

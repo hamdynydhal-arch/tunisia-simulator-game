@@ -6,29 +6,13 @@
  * ██ HUSBAND-ONLY COMPONENT ██
  * Must never be rendered in the wife's session.
  *
- * Purpose
- * ───────
- * Predictability is one of the fastest fear-reduction tools available to
- * the husband.  When the wife knows exactly what he will do when he feels
- * anger rising — before any incident — the unpredictability that causes
- * her nervous system to stay on alert is reduced.
- *
- * UX flow
- * ───────
- * 1. Husband sees 3 strategy cards (multi-select).
- * 2. Selects at least one.
- * 3. Taps "احفظ خطتي" — encrypts + upserts to Supabase.
- * 4. A read-only "plan card" is shown with a soft affirmation.
- * 5. "تعديل" button re-opens editing mode.
- *
- * The plan is stored encrypted in husband_anger_plan_* columns.
- * The wife's client never reads or displays this field.
+ * Phase 4: data stored in husband's IndexedDB (key: 'AngerPlan').
+ * No Supabase columns for this field post-Phase-4 migration.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import type { AngerPlan, AngerStrategyId } from "@/types/sakan";
-import { encrypt, decrypt, assemblePayload } from "@/lib/sakan/crypto";
-import { upsertSession, fetchSession } from "@/lib/sakan/supabase";
+import { writeHusband, readHusband } from "@/lib/sakan/idb";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -63,7 +47,6 @@ const STRATEGY_OPTIONS: StrategyOption[] = [
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  coupleId: string;
   /** Husband's private session passphrase. */
   passphrase: string;
   className?: string;
@@ -96,14 +79,11 @@ function StrategyCard({
         disabled ? "pointer-events-none opacity-70" : "",
       ].join(" ")}
     >
-      {/* Check mark */}
       <div
         aria-hidden
         className={[
           "shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-1 transition-all duration-200",
-          selected
-            ? "border-teal-600 bg-teal-600"
-            : "border-stone-300 bg-white",
+          selected ? "border-teal-600 bg-teal-600" : "border-stone-300 bg-white",
         ].join(" ")}
       >
         {selected && (
@@ -118,16 +98,10 @@ function StrategyCard({
           </svg>
         )}
       </div>
-      {/* Content */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span aria-hidden className="text-xl leading-none">{option.icon}</span>
-          <span
-            className={[
-              "text-sm font-bold",
-              selected ? "text-teal-800" : "text-stone-800",
-            ].join(" ")}
-          >
+          <span className={["text-sm font-bold", selected ? "text-teal-800" : "text-stone-800"].join(" ")}>
             {option.label}
           </span>
         </div>
@@ -139,25 +113,15 @@ function StrategyCard({
 
 // ─── Read-only Plan Card ──────────────────────────────────────────────────────
 
-function SavedPlanCard({
-  plan,
-  onEdit,
-}: {
-  plan: AngerPlan;
-  onEdit: () => void;
-}) {
-  const selectedOptions = STRATEGY_OPTIONS.filter((o) =>
-    plan.strategies.includes(o.id)
-  );
+function SavedPlanCard({ plan, onEdit }: { plan: AngerPlan; onEdit: () => void }) {
+  const selectedOptions = STRATEGY_OPTIONS.filter((o) => plan.strategies.includes(o.id));
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      {/* Header */}
       <div
         className="rounded-2xl p-5 border"
         style={{
-          background:
-            "linear-gradient(135deg, rgba(107,127,120,0.10) 0%, rgba(92,110,104,0.06) 100%)",
+          background: "linear-gradient(135deg, rgba(107,127,120,0.10) 0%, rgba(92,110,104,0.06) 100%)",
           borderColor: "rgba(107,127,120,0.25)",
         }}
       >
@@ -168,15 +132,12 @@ function SavedPlanCard({
           {selectedOptions.map((opt) => (
             <div key={opt.id} className="flex items-center gap-3">
               <span aria-hidden className="text-lg shrink-0">{opt.icon}</span>
-              <span className="text-sm font-semibold text-stone-800">
-                {opt.label}
-              </span>
+              <span className="text-sm font-semibold text-stone-800">{opt.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Affirmation */}
       <div className="bg-amber-50/70 border border-amber-100 rounded-xl px-4 py-3">
         <p className="text-xs text-amber-700 leading-relaxed">
           🕊️ كلما اتبعت هذه الخطة، أصبح جهازها العصبي يتوقع الأمان
@@ -184,7 +145,6 @@ function SavedPlanCard({
         </p>
       </div>
 
-      {/* Edit */}
       <button
         type="button"
         onClick={onEdit}
@@ -198,58 +158,32 @@ function SavedPlanCard({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AngerPredictabilityPlan({
-  coupleId,
-  passphrase,
-  className = "",
-}: Props) {
+export default function AngerPredictabilityPlan({ passphrase, className = "" }: Props) {
   const [selected, setSelected] = useState<AngerStrategyId[]>([]);
   const [savedPlan, setSavedPlan] = useState<AngerPlan | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load existing plan on mount
+  // Load existing plan from IndexedDB on mount
   useEffect(() => {
-    if (!coupleId || !passphrase) {
-      setIsLoading(false);
-      return;
-    }
+    if (!passphrase) { setIsLoading(false); return; }
     let cancelled = false;
 
     async function load() {
-      const session = await fetchSession(coupleId);
-      if (cancelled) return;
-
-      if (session) {
-        const payload = assemblePayload(
-          session.husband_anger_plan_ciphertext,
-          session.husband_anger_plan_iv,
-          session.husband_anger_plan_salt
-        );
-        if (payload) {
-          try {
-            const plan = await decrypt<AngerPlan>(payload, passphrase);
-            if (!cancelled) {
-              setSavedPlan(plan);
-              setSelected(plan.strategies);
-            }
-          } catch {
-            // Wrong passphrase or corrupted — start fresh
-          }
-        }
+      const plan = await readHusband<AngerPlan>("AngerPlan", passphrase);
+      if (!cancelled) {
+        if (plan) { setSavedPlan(plan); setSelected(plan.strategies); }
+        setIsLoading(false);
       }
-      if (!cancelled) setIsLoading(false);
     }
 
     load();
     return () => { cancelled = true; };
-  }, [coupleId, passphrase]);
+  }, [passphrase]);
 
   function toggleStrategy(id: AngerStrategyId) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+    setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]);
   }
 
   const handleSave = useCallback(async () => {
@@ -257,26 +191,14 @@ export default function AngerPredictabilityPlan({
     setIsSaving(true);
 
     try {
-      const plan: AngerPlan = {
-        strategies: selected,
-        savedAt: new Date().toISOString(),
-      };
-
-      const payload = await encrypt(plan, passphrase);
-      const { error } = await upsertSession(coupleId, {
-        husband_anger_plan_ciphertext: payload.ciphertext,
-        husband_anger_plan_iv: payload.iv,
-        husband_anger_plan_salt: payload.salt,
-      });
-
-      if (!error) {
-        setSavedPlan(plan);
-        setEditMode(false);
-      }
+      const plan: AngerPlan = { strategies: selected, savedAt: new Date().toISOString() };
+      await writeHusband<AngerPlan>("AngerPlan", plan, passphrase);
+      setSavedPlan(plan);
+      setEditMode(false);
     } finally {
       setIsSaving(false);
     }
-  }, [coupleId, isSaving, passphrase, selected]);
+  }, [isSaving, passphrase, selected]);
 
   if (isLoading) {
     return (
@@ -294,20 +216,16 @@ export default function AngerPredictabilityPlan({
 
   return (
     <div className={`flex flex-col gap-6 w-full ${className}`} dir="rtl">
-      {/* Header */}
       <div className="space-y-1">
-        <h2 className="text-base font-bold text-stone-800">
-          خطة التوقع الآمن
-        </h2>
+        <h2 className="text-base font-bold text-stone-800">خطة التوقع الآمن</h2>
         <p className="text-sm text-stone-500 leading-relaxed">
           اختر ما ستفعله حين تشعر بالغضب. لا يُطلب منك التحكم في مشاعرك —
-          فقط أن تكون سلوكك متوقعًا ومعروفًا مسبقًا.
+          فقط أن يكون سلوكك متوقعًا ومعروفًا مسبقًا.
         </p>
       </div>
 
       {showEditor ? (
         <>
-          {/* Strategy cards */}
           <div className="flex flex-col gap-3">
             {STRATEGY_OPTIONS.map((opt) => (
               <StrategyCard
@@ -320,14 +238,10 @@ export default function AngerPredictabilityPlan({
             ))}
           </div>
 
-          {/* Minimum selection hint */}
           {selected.length === 0 && (
-            <p className="text-xs text-stone-400 text-center">
-              اختر خطة واحدة على الأقل
-            </p>
+            <p className="text-xs text-stone-400 text-center">اختر خطة واحدة على الأقل</p>
           )}
 
-          {/* Save button */}
           <button
             type="button"
             onClick={handleSave}
