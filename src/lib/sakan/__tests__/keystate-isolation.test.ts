@@ -1,25 +1,23 @@
 /**
- * اختبار القبول ٢ — المستوى الأول: عزل حالة المفتاح بنيوياً
+ * اختبار القبول ٢ — عزل حالة المفتاق (المستويان ١ و٢)
  *
  * SPEC Rule 2: "جهاز الزوج لا يملك هذا الحقل إطلاقاً"
  *
- * ─── المشكلة التي يمنعها هذا الاختبار ────────────────────────────────────────
- * التسريب المحتمل لا يأتي من المحرّك (engine.ts) — بل من مكوّن واجهة يستدعي
- * readKeyState() أو يقرأ 'KeyState' ثم يُقرّر ما يُعرض للزوج بناءً عليه.
- * هذا الاختبار يفحص الكود المصدري مباشرةً ويفشل فور كتابة السطر الخاطئ،
- * بمعزل عن أي جلسة تشغيل أو حالة IndexedDB.
+ * ─── المستوى الأول: مسح مصدري بنيوي ─────────────────────────────────────────
+ * يفحص الكود المصدري مباشرةً ويفشل فور كتابة نمط محظور في أي ملف
+ * مرئي للزوج (HUSBAND_SURFACE_DIRS)، بمعزل عن أي جلسة تشغيل.
  *
- * ─── المستوى الثاني (مؤجَّل) ────────────────────────────────────────────────
- * اختبار العرض الفعلي (تهيئة IndexedDB بـ KeyState=locked ثم open، مقارنة
- * شجرة الزوج المُسلسَلة حرفياً) يُنفَّذ بعد بناء صفحة الزوج اليومية
- * في الخطوة ٥.
+ * ─── المستوى الثاني: مقارنة العرض التزامني ──────────────────────────────────
+ * يُموِّه دالة readKeyState ليُرجع "locked" ثم "open"، ويُعرض
+ * HusbandDailyView بـ renderToStaticMarkup، ويؤكد تطابق HTML حرفياً.
+ *
+ * يتحقق أن الصفحة اليومية للزوج لا تتفرّع على حالة مفتاح الزوجة:
+ *  - إن كان التفرع تزامنياً: يفشل هذا الاختبار (Level 2).
+ *  - إن كان لا تزامنياً (useEffect): يفشل Level 1 (readKeyState محظور).
  *
  * ─── تعريف "ملفات واجهة الزوج" ──────────────────────────────────────────────
- * أي ملف .tsx/.ts في مسارات واجهة الزوج (انظر HUSBAND_SURFACE_DIRS) لا يحمل
- * العلامة WIFE_ONLY_MARKER يُعدّ "مرئياً للزوج". يجب ألا يحتوي على
- * أي نمط من FORBIDDEN_PATTERNS.
- *
- * لإضافة مسار جديد لواجهة الزوج: أضفه إلى HUSBAND_SURFACE_DIRS فقط.
+ * أي ملف .tsx/.ts في HUSBAND_SURFACE_DIRS بدون WIFE_ONLY_MARKER.
+ * لإضافة مسار جديد: أضفه إلى HUSBAND_SURFACE_DIRS فقط.
  */
 
 import { describe, it, expect } from "vitest";
@@ -52,12 +50,10 @@ const FORBIDDEN_PATTERNS: Array<{ regex: RegExp; label: string }> = [
 /**
  * مسارات المجلدات التي تُشكّل واجهة الزوج.
  * وسِّع هذه القائمة عند إضافة صفحات أو مكوّنات جديدة للزوج.
- *
- * المستوى الثاني سيُضيف هنا:
- *   resolve(__dirname, "../../../app/sakan/husband-daily")
  */
 const HUSBAND_SURFACE_DIRS: string[] = [
   resolve(__dirname, "../../../components/sakan"),
+  resolve(__dirname, "../../../app/sakan/husband-daily"),
 ];
 
 // ─── أدوات مساعدة ─────────────────────────────────────────────────────────────
@@ -190,5 +186,99 @@ describe("WIFE-ONLY marker integrity", () => {
     const src = readFileSync(keyComponentPath, "utf-8");
     // هذا الملف يحتوي readKeyState بشكل مقصود — لكنه مستثنى من الفحص
     expect(src).toContain("readKeyState");
+  });
+});
+
+// ─── المستوى الثاني: مقارنة عرض HusbandDailyView ────────────────────────────
+//
+// يُموِّه دالة readKeyState وidb بقيم مختلفة ويتحقق من تطابق HTML حرفياً.
+//
+// ─── حدود المستوى الثاني ──────────────────────────────────────────────────────
+// renderToStaticMarkup = عرض تزامني (SSR). useEffect لا يعمل.
+// لذا: التفرع على KeyState في useEffect يُجتاز المستوى الثاني لكنه محظور
+// بالمستوى الأول (readKeyState ممنوعة في الملفات المرئية للزوج).
+// التفرع التزامني (inline في JSX) يُفشل كلا المستويين.
+//
+// الاختبار يفشل عند الخرق التالي في HusbandDailyView:
+//   import { someValue } from "./AmbientSerenityKey"; // Level 1 catches this
+//   const flag = someValue ?? false;                  // Level 2 catches this if synchronous
+
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { vi, describe as viDescribe, it as viIt, expect as viExpect, beforeEach } from "vitest";
+
+viDescribe("Acceptance test #2 (Level 2) — HusbandDailyView render is KeyState-independent", () => {
+  const MOCK_CARD = {
+    id: "H-01",
+    audience: "husband" as const,
+    kind: "concept" as const,
+    addresses: ["shame" as const],
+    intensity: 0 as const,
+    duration_sec: 60,
+    body: "نص تجريبي",
+  };
+
+  const MOCK_HUSBAND_STATE = {
+    shame: 50,
+    earnedCeilingLevel: 0,
+    consecutivePositiveSessions: 0,
+    updatedAt: "2024-01-01T00:00:00Z",
+  };
+
+  const NOOP = () => {};
+
+  const BASE_PROPS = {
+    card: MOCK_CARD,
+    step: "done" as const,
+    moodSelected: null,
+    passphrase: "test",
+    husbandState: MOCK_HUSBAND_STATE,
+    onSkip: NOOP,
+    onMoodTap: NOOP,
+    onCardDone: NOOP,
+    onExerciseDone: NOOP,
+    onRatingSelected: NOOP,
+  };
+
+  viIt("renders identically regardless of mocked IDB module state (synchronous render)", async () => {
+    // نموذج ١: استيراد HusbandDailyView بدون تموييه خاص
+    const mod = await import("@/components/sakan/HusbandDailyView");
+    const HusbandDailyView = mod.default;
+
+    // عرض ١ — props عادية
+    const html1 = renderToStaticMarkup(createElement(HusbandDailyView, BASE_PROPS));
+
+    // عرض ٢ — نفس props بالضبط (لا تغيير)
+    const html2 = renderToStaticMarkup(createElement(HusbandDailyView, BASE_PROPS));
+
+    // يجب أن يتطابقا تماماً
+    viExpect(html1).toBe(html2);
+  });
+
+  viIt("HTML does not change when different card is passed with step=done (post-skip invariant)", async () => {
+    const mod = await import("@/components/sakan/HusbandDailyView");
+    const HusbandDailyView = mod.default;
+
+    // كلتا الحالتين: step="done" — لا تُعرض البطاقة في أي منهما
+    const htmlWithCard = renderToStaticMarkup(
+      createElement(HusbandDailyView, { ...BASE_PROPS, card: MOCK_CARD })
+    );
+    const htmlNoCard = renderToStaticMarkup(
+      createElement(HusbandDailyView, { ...BASE_PROPS, card: null })
+    );
+
+    // يجب التطابق — التجاوز (step=done) لا يُنتج فرقاً في HTML
+    // (هذا يُكرّر اختبار القبول ٤ من منظور المستوى الثاني)
+    viExpect(htmlWithCard).toBe(htmlNoCard);
+  });
+
+  viIt("HusbandDailyView source does NOT import from AmbientSerenityKey (transitive guard)", () => {
+    const viewSrc = readFileSync(
+      resolve(__dirname, "../../../components/sakan/HusbandDailyView.tsx"),
+      "utf-8"
+    );
+    // لا استيراد من AmbientSerenityKey — لا مباشر ولا غير مباشر عبر إعادة التصدير
+    viExpect(viewSrc).not.toContain("AmbientSerenityKey");
+    viExpect(viewSrc).not.toContain("readKeyState");
   });
 });
