@@ -102,10 +102,9 @@ export interface EncryptedPayload {
 
 /** Which screen is currently visible in the onboarding wizard. */
 export type SakanStep =
-  | "role-select"   // 0 – choose husband / wife
-  | "covenant-intro" // 1 – تمهيد الميثاق القصير
-  | "week-zero"      // 2 – أسئلة أسبوع صفر
-  | "full-covenant"; // 3 – ميثاق سكن الكامل
+  | "role-select" // 0 – choose husband / wife
+  | "covenant"    // 1 – ميثاق سَكَن (شاشة واحدة، تُعرض مرة وتُفتح من الإعدادات)
+  | "week-zero";  // 2 – أسئلة أسبوع صفر
 
 export interface SakanFlowState {
   step: SakanStep;
