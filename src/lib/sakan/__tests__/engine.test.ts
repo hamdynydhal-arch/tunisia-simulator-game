@@ -191,98 +191,11 @@ describe("Acceptance test #1 — computeCeiling", () => {
   });
 });
 
-// ─── اختبار القبول ٢: تطابق ناتج واجهة الزوج حرفياً ────────────────────────
-
-/**
- * buildHusbandViewPayload لا تقبل keyState إطلاقاً — لأن HusbandCeilingContext
- * لا يملك هذا الحقل هيكلياً. استدعاؤها مرتين بنفس المدخلات يجب أن ينتج
- * نفس السلسلة بالضبط، حرفاً بحرف.
- *
- * كيف يفشل هذا الاختبار في المستقبل:
- * إذا أضاف مطوّر عنصراً مشروطاً بـ keyState داخل مسار الزوج (مثل
- * تمرير keyState بطريقة ما إلى selectCard أو computeCeiling للزوج)،
- * فإن الناتجين سيختلفان — مما يكشف الخرق فوراً.
- */
-function buildHusbandViewPayload(params: {
-  earnedLevel: number;
-  shame: number;
-  cards: Card[];
-  flags: string[];
-  shownCardIds: Set<string>;
-  lastCardId?: string;
-}): string {
-  // لا keyState هنا — HusbandCeilingContext لا يملكه هيكلياً
-  const ctx: HusbandCeilingContext = {
-    role: "husband",
-    shame: params.shame,
-    earnedLevel: params.earnedLevel,
-  };
-  const ceiling = computeCeiling(ctx);
-
-  const selectParams: SelectCardParams = {
-    role: "husband",
-    ceiling,
-    cards: params.cards,
-    shame: params.shame,
-    flags: params.flags,
-    shownCardIds: params.shownCardIds,
-    lastCardId: params.lastCardId,
-  };
-  const card = selectCard(selectParams);
-
-  // تسلسل مستقر: addresses مرتّبة أبجدياً لتجنّب فروق الترتيب
-  return JSON.stringify({
-    ceiling,
-    card: card
-      ? {
-          id: card.id,
-          audience: card.audience,
-          kind: card.kind,
-          body: card.body,
-          intensity: card.intensity,
-          addresses: [...card.addresses].sort(),
-          duration_sec: card.duration_sec,
-        }
-      : null,
-  });
-}
-
-describe("Acceptance test #2 — husband view is key-agnostic", () => {
-  const BASE_PARAMS = {
-    earnedLevel: 3,
-    shame: 40,
-    cards: HUSBAND_CARDS,
-    flags: [] as string[],
-    shownCardIds: new Set<string>(),
-    lastCardId: undefined,
-  };
-
-  it("husband view payload is byte-identical: 'locked context' vs 'open context'", () => {
-    // نُسمّي الاستدعاءين "locked" و"open" توثيقاً فقط —
-    // المدخلات متطابقة لأن buildHusbandViewPayload لا تأخذ keyState
-    const whenLocked = buildHusbandViewPayload({ ...BASE_PARAMS }); // "سياق locked"
-    const whenOpen   = buildHusbandViewPayload({ ...BASE_PARAMS }); // "سياق open"
-
-    expect(whenLocked).toBe(whenOpen);                       // تطابق حرفي
-    expect(JSON.parse(whenLocked).card).not.toBeNull();      // ليست نتيجة تافهة
-  });
-
-  it("changing earnedLevel changes the payload (proves the comparison is meaningful)", () => {
-    const highCeiling  = buildHusbandViewPayload({ ...BASE_PARAMS, earnedLevel: 5 });
-    const zeroCeiling  = buildHusbandViewPayload({ ...BASE_PARAMS, earnedLevel: 0 });
-    // النتيجتان تختلفان — الأعلى سقفاً يُتيح بطاقات أشد
-    expect(highCeiling).not.toBe(zeroCeiling);
-  });
-
-  it("HusbandCeilingContext type has no keyState key at runtime", () => {
-    const ctx: HusbandCeilingContext = {
-      role: "husband",
-      shame: BASE_PARAMS.shame,
-      earnedLevel: BASE_PARAMS.earnedLevel,
-    };
-    expect("keyState" in ctx).toBe(false);
-  });
-});
+// ─── اختبار القبول ٢: انظر keystate-isolation.test.ts ──────────────────────
+//
+// المستوى الأول (بنيوي — فحص الكود المصدري): keystate-isolation.test.ts
+// المستوى الثاني (عرض فعلي — مقارنة شجرة الزوج): مؤجَّل حتى بناء الصفحات
+//   اليومية في الخطوة ٥.
 
 // ─── اختبار القبول ٥: تطبيق إشارة الجلسة — عدم التناظر ────────────────────
 
