@@ -438,6 +438,21 @@ export type StateValue = number; // 0–100 inclusive
 export interface WifeState {
   safety: StateValue;   // 0–100
   trust: StateValue;    // 0–100
+
+  /**
+   * SPEC §4.1 — سقف الشدة المكتسب.
+   * يرتفع +1 بعد 3 جلسات قبول متتالية مع تقييم راحة ≥ 3.
+   * ينزل −1 فوراً عند أي تجاوز (skip/close) لبطاقة intensity ≥ 1.
+   * المجال: 0–5.
+   */
+  earnedCeilingLevel: number;
+
+  /**
+   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeilingLevel.
+   * يُعاد ضبطه إلى 0 عند كل تجاوز أو عند الارتفاع.
+   */
+  consecutivePositiveSessions: number;
+
   updatedAt: string;    // ISO-8601
 }
 
@@ -446,6 +461,18 @@ export interface WifeState {
  */
 export interface HusbandState {
   shame: StateValue;    // 0–100
+
+  /**
+   * SPEC §4.1 — سقف الشدة المكتسب (نفس آلية الزوجة، بلا keyState).
+   * المجال: 0–5.
+   */
+  earnedCeilingLevel: number;
+
+  /**
+   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeilingLevel.
+   */
+  consecutivePositiveSessions: number;
+
   updatedAt: string;    // ISO-8601
 }
 
