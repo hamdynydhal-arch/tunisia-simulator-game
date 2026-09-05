@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import StoreHydrator from "@/components/StoreHydrator";
+import { CSP_FONT_SRC } from "@/lib/sakan/camouflage";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -50,7 +51,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://*.arcgisonline.com",
   "connect-src 'self' https://server.arcgisonline.com https://*.arcgisonline.com https://*.supabase.co wss://*.supabase.co",
-  "font-src 'self' data:",
+  `font-src ${CSP_FONT_SRC}`,
   "frame-ancestors 'none'",
 ].join("; ");
 
