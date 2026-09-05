@@ -157,6 +157,23 @@ export interface BlindIntersectionHookResult {
   retry: () => void;
 }
 
+/**
+ * السياق الخفي لوضع الطرف الآخر — يُمرَّر إلى SharedSpaceContent ولا يُعرض أبداً.
+ * AT12 يضمن أن أي وصول مشروط به ينتج HTML مختلفاً → يفشل الاختبار.
+ *
+ * الفرق بين الحالتين الذي يختبره AT12:
+ *   partnerHasSubmitted = false → الطرف لم يجب إطلاقاً
+ *   partnerHasSubmitted = true  → الطرف أجاب ولم يتقاطع مع شيء
+ * في الحالتين تكون التقاطعات الفعلية نفسها والHTML يجب أن يتطابق.
+ */
+export interface PartnerContext {
+  /**
+   * هل أرسل الطرف الآخر بياناته المشفّرة إلى الخادم؟
+   * آلية داخلية — لا يُعرض، لا يُمرَّر إلى أي مكوّن عرض.
+   */
+  partnerHasSubmitted: boolean;
+}
+
 // ─── Wife Lock State ──────────────────────────────────────────────────────────
 
 /**
