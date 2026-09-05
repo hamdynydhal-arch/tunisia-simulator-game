@@ -162,22 +162,25 @@ describe("Acceptance test #1 — computeCeiling", () => {
     expect(computeCeiling(ctx)).toBe(0);
   });
 
-  it("husband + earnedLevel = 3 → ceiling = 3 (no keyState, no safety cap)", () => {
+  // SPEC §4.1 (بعد تصحيح المواصفة): سقف الزوج مقفول عند 0 دائماً.
+  // كان هذان الاختباران يؤكّدان ارتفاعه بـ earnedLevel — وهو ما صحّحته المواصفة.
+
+  it("husband + earnedLevel = 3 → ceiling = 0 (husband ceiling never rises)", () => {
     const ctx: HusbandCeilingContext = {
       role: "husband",
       shame: 80,
       earnedLevel: 3,
     };
-    expect(computeCeiling(ctx)).toBe(3);
+    expect(computeCeiling(ctx)).toBe(0);
   });
 
-  it("husband earnedLevel is capped at 5", () => {
+  it("husband ceiling stays 0 even at an absurd earnedLevel", () => {
     const ctx: HusbandCeilingContext = {
       role: "husband",
       shame: 0,
       earnedLevel: 99,
     };
-    expect(computeCeiling(ctx)).toBe(5);
+    expect(computeCeiling(ctx)).toBe(0);
   });
 
   it("HusbandCeilingContext structurally excludes keyState", () => {

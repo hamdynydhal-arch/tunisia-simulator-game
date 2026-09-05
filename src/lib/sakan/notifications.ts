@@ -38,6 +38,28 @@ export function shouldAutoRequestNotificationPermission(): boolean {
   return false;
 }
 
+// ─── نصّ الإشعار — المسار الوحيد ─────────────────────────────────────────────
+
+/**
+ * النصّ الكامل لأي إشعار يصدره التطبيق. ثابت واحد لا يُبنى ولا يُركَّب.
+ *
+ * SPEC §8.8: "نص أي إشعار لا يحتوي محتوى بطاقة ولا اسم قسم."
+ * SPEC §1.9: "نص الإشعار الوحيد المسموح: اسم محايد بلا تفصيل."
+ *
+ * ██ لا تُضِف معاملات إلى buildNotificationText ██
+ * الدالة لا تأخذ مدخلات عمداً: ما لا يدخل لا يمكن أن يتسرّب. أي معامل
+ * — بطاقة، قسم، حالة — يفتح مساراً لتسريب المحتوى ويُفشل اختبار القبول ٨.
+ */
+export const NOTIFICATION_BODY = "" as const;
+
+/**
+ * المسار الوحيد لإنتاج نصّ إشعار في التطبيق.
+ * يُعيد الثابت دائماً، بصرف النظر عن أي حالة.
+ */
+export function buildNotificationText(): { title: string; body: string } {
+  return { title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY };
+}
+
 // ─── re-export ────────────────────────────────────────────────────────────────
 // تُتاح REVEALING_WORDS للاختبارات دون استيراد ثانوي من camouflage.ts
 export { REVEALING_WORDS };

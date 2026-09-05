@@ -78,8 +78,8 @@ const MAX_CEILING = 5;
  *   safety ≥ 80      → min(earned, 5)
  *
  * قواعد الزوج:
- *   earnedLevel فقط → min(earned, 5)
- *   (لا مفتاح، لا حد safety)
+ *   0 دائماً → مساره كله intensity 0 (SPEC §4.1)
+ *   (لا مفتاح، لا حد safety، ولا يرفعه earnedLevel)
  */
 export function computeCeiling(ctx: CeilingContext): number {
   const earned = Math.min(ctx.earnedLevel, MAX_CEILING);
@@ -93,8 +93,16 @@ export function computeCeiling(ctx: CeilingContext): number {
     return Math.min(earned, MAX_CEILING); // safety ≥ 80
   }
 
-  // husband — earnedLevel فقط
-  return earned;
+  // ─── الزوج — السقف مقفول عند 0 دائماً (SPEC §4.1) ────────────────────────
+  // لا يرفعه earnedCeilingLevel، ولا الجلسات الإيجابية، ولا مرور الوقت،
+  // ولا حالة المفتاح. مساره كله intensity 0: مهارات ومعلومات بلا محتوى اقتراب.
+  //
+  // هذا لا يُضعف العزل البنيوي في §3.3 — بل يُقوّيه: السقف ثابت بحكم الدور
+  // لا بحكم المفتاح، فلا يبقى في مسار الزوج شيء يُستدل منه على حالة المفتاح.
+  // `earned` يُحسب أعلاه ويبقى في نموذج الزوج لأن applySessionSignal يستخدمه
+  // في إشارات الجلسة، لكنه لا يدخل في حساب السقف.
+  void earned;
+  return 0;
 }
 
 // ─── §4.1 — تطبيق إشارة الجلسة ───────────────────────────────────────────────

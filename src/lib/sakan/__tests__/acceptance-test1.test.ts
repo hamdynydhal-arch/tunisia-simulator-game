@@ -43,7 +43,7 @@
 import { describe, it, expect } from "vitest";
 import { computeCeiling, selectCard, selectCardWithLearning } from "@/lib/sakan/engine";
 import { ALL_CARDS } from "@/lib/sakan/cards";
-import type { LearningState, Card, CardIntensity } from "@/types/sakan";
+import type { LearningState, Card, CardIntensity, SakanRole } from "@/types/sakan";
 
 // ─── ثوابت ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,23 @@ const SYNTHETIC_WIFE_CARDS: Card[] = ([0, 1, 2, 3, 4, 5] as CardIntensity[]).map
   })
 );
 
+/**
+ * الكتالوج الحقيقي لا يحوي بطاقة زوج واحدة بشدّة > 0 (كلها 0). لذلك المسح
+ * على الكتالوج الحقيقي وحده صحيح بالمصادفة ولا يُثبت شيئاً عن السقف.
+ * هذا الكتالوج يضمن وجود مرشَّح زوج بكل شدّة 0…5.
+ */
+const SYNTHETIC_HUSBAND_CARDS: Card[] = ([0, 1, 2, 3, 4, 5] as CardIntensity[]).map(
+  (intensity) => ({
+    id: `TEST-AT1-H-${intensity}`,
+    audience: "husband" as const,
+    kind: "concept" as const,
+    addresses: ["shame" as const],
+    intensity,
+    duration_sec: 60,
+    body: `بطاقة زوج اصطناعية — شدّة ${intensity}`,
+  })
+);
+
 // ─── تعداد كل البطاقات الوصولة ───────────────────────────────────────────────
 
 /**
@@ -116,14 +133,15 @@ function collectReachable(
   ceiling: number,
   safety: number,
   flags: string[],
-  learning?: LearningState
+  learning?: LearningState,
+  role: SakanRole = "wife"
 ): Card[] {
   const seen  = new Set<string>();
   const found: Card[] = [];
 
   for (let i = 0; i < cards.length + 1; i++) {
     const params = {
-      role: "wife" as const,
+      role,
       ceiling,
       cards,
       safety,
@@ -259,6 +277,93 @@ describe("Acceptance test #1 (§8.1 L2) — no intensity > 0 card is ever REACHA
                   `card "${card.id}" (intensity ${card.intensity}) is reachable ` +
                     `while KeyState = 'locked' — catalogue: ${catalogueLabel}, ` +
                     `earnedLevel: ${earnedLevel}, safety: ${safety}, ` +
+                    `flags: [${flags.join(",")}], learning: ${learningLabel}`
+                ).toBe(0);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(combinations).toBe(
+      2 *
+        EARNED_LEVELS.length *
+        SAFETY_VALUES.length *
+        FLAG_SETS.length *
+        LEARNING_STATES.length
+    );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// المستوى الثالث — مسار الزوج
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * SPEC §4.1 (بعد تصحيح المواصفة):
+ *
+ *   "سقف الزوج مقفول عند 0 دائماً. لا يرتفع بحال: لا بـ earnedCeilingLevel،
+ *    ولا بجلسات إيجابية، ولا بمرور الوقت، ولا بحالة المفتاح. مساره كله
+ *    intensity: 0 — مهارات ومعلومات، بلا أي محتوى اقتراب."
+ *
+ * هذا يُغلق التعارض الذي كان قائماً بين §8.1 ("لأي طرف") و§3.3 ("جهاز الزوج
+ * لا يملك حقل KeyState إطلاقاً"): السقف عند الزوج ثابت بحكم **دوره** لا بحكم
+ * المفتاح، فلا يبقى شيء في مساره يُستدل منه على حالة المفتاح.
+ *
+ * المسح هنا لا يمرّ عبر keyState إطلاقاً — لا وجود له في سياق الزوج.
+ * الشرط أقوى: لا بطاقة intensity > 0 وصولة للزوج في **أي** حالة.
+ */
+describe("Acceptance test #1 (§4.1 L3) — husband ceiling is 0 for EVERY input, always", () => {
+  it("computeCeiling returns exactly 0 for the husband across the full input space", () => {
+    for (const earnedLevel of EARNED_LEVELS) {
+      for (const shame of SAFETY_VALUES) {
+        const ceiling = computeCeiling({ role: "husband", shame, earnedLevel });
+
+        expect(
+          ceiling,
+          `husband ceiling must be 0 always, but got ${ceiling} ` +
+            `for { earnedLevel: ${earnedLevel}, shame: ${shame} }`
+        ).toBe(0);
+      }
+    }
+  });
+
+  it("guard: the synthetic husband catalogue really offers a candidate at every intensity", () => {
+    const intensities = SYNTHETIC_HUSBAND_CARDS.map((c) => c.intensity).sort();
+    expect(intensities).toEqual([0, 1, 2, 3, 4, 5]);
+
+    // لو رُفع السقف يدوياً لأصبحت البطاقات عالية الشدّة وصولة — يمنع الصحّة بالمصادفة
+    const reachableAtCeiling5 = collectReachable(
+      SYNTHETIC_HUSBAND_CARDS, 5, 0, [], undefined, "husband"
+    );
+    expect(reachableAtCeiling5.some((c) => c.intensity > 0)).toBe(true);
+  });
+
+  it("every card reachable by the husband has intensity 0, across both catalogues", () => {
+    let combinations = 0;
+
+    for (const [catalogueLabel, catalogue] of [
+      ["real", ALL_CARDS],
+      ["synthetic", SYNTHETIC_HUSBAND_CARDS],
+    ] as Array<[string, Card[]]>) {
+      for (const earnedLevel of EARNED_LEVELS) {
+        for (const shame of SAFETY_VALUES) {
+          // السقف يُحسب من نفس الدالة التي يستخدمها التطبيق — لا قيمة مُملاة
+          const ceiling = computeCeiling({ role: "husband", shame, earnedLevel });
+
+          for (const flags of FLAG_SETS) {
+            for (const [learningLabel, learning] of LEARNING_STATES) {
+              combinations++;
+
+              for (const card of collectReachable(
+                catalogue, ceiling, shame, flags, learning, "husband"
+              )) {
+                expect(
+                  card.intensity,
+                  `card "${card.id}" (intensity ${card.intensity}) is reachable ` +
+                    `by the husband — catalogue: ${catalogueLabel}, ` +
+                    `earnedCeilingLevel: ${earnedLevel}, shame: ${shame}, ` +
                     `flags: [${flags.join(",")}], learning: ${learningLabel}`
                 ).toBe(0);
               }
