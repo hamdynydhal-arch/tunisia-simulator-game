@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
+import { SAKAN_CAMOUFLAGE_NAME } from "@/lib/sakan/camouflage";
 
 // Required for `output: "export"`: the manifest route must be prerendered.
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "محاكي تونس",
-    short_name: "محاكي تونس",
+    name: SAKAN_CAMOUFLAGE_NAME,
+    short_name: SAKAN_CAMOUFLAGE_NAME,
     description:
       "لعبة استراتيجية شاملة تدور أحداثها في ولايات تونس الأربع والعشرين.",
     lang: "ar",

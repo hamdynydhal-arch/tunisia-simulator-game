@@ -22,13 +22,18 @@
  * • NO pop-ups, NO toasts, NO "Unlocked" text, NO confetti, NO sound.
  *   The colour change IS the entire feedback.
  *
- * Under the hood
- * ──────────────
+ * Under the hood (Phase 4)
+ * ────────────────────────
  * Activating the key:
  *   1. Encrypts { isIntimacyUnlocked: true, activatedAt: ISO-timestamp }
  *      with the wife's private passphrase (AES-GCM via SubtleCrypto).
- *   2. Upserts the encrypted blob to sakan_sessions.lock_ciphertext / iv / salt.
- *   3. The husband's client never reads this column.
+ *   2. Writes the encrypted KeyState to the wife's IndexedDB (key: 'KeyState').
+ *      NEVER to Supabase — the husband's device has no access to this value.
+ *
+ * Structural guarantee (SPEC §3.3, Rule 2, Acceptance test #9):
+ *   The husband's IndexedDB store (HUSBAND_STORE_KEYS) does not define 'KeyState'.
+ *   writeHusband() is typed to reject 'KeyState' at compile time.
+ *   There is no Supabase column for this data post-Phase-4 migration.
  *
  * The `wifeLockPassphrase` prop MUST be the wife's individual session
  * passphrase (NOT the shared couple passphrase used for blind intersection).
@@ -36,29 +41,23 @@
  */
 
 import { useState, useCallback } from "react";
-import { encrypt } from "@/lib/sakan/crypto";
-import { upsertSession } from "@/lib/sakan/supabase";
-import type { WifeLockState } from "@/types/sakan";
+import { writeWife, readWife } from "@/lib/sakan/idb";
+import type { WifeLockState, KeyState } from "@/types/sakan";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  /** UUID of the couple's Supabase session row. */
-  coupleId: string;
   /** Wife's individual session passphrase — never the shared couple passphrase. */
   wifeLockPassphrase: string;
-  /** Controlled initial state (e.g. fetched from Supabase on mount). */
+  /** Controlled initial state (e.g. read from IndexedDB on mount). */
   initiallyUnlocked?: boolean;
-  /** Called after the state is successfully written to the backend. */
+  /** Called after the state is successfully written to IndexedDB. */
   onActivated?: () => void;
   /** Additional Tailwind classes for position/margin in the parent layout. */
   className?: string;
 }
 
 // ─── The botanical SVG motif ──────────────────────────────────────────────────
-//
-// Three elliptical petals arranged 120° apart around a shared centre.
-// The SVG is 36 × 36 px; scale with width/height props or CSS.
 
 interface MotifProps {
   color: string;
@@ -112,7 +111,6 @@ function BotanicalMotif({ color, glowing }: MotifProps) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AmbientSerenityKey({
-  coupleId,
   wifeLockPassphrase,
   initiallyUnlocked = false,
   onActivated,
@@ -120,18 +118,13 @@ export default function AmbientSerenityKey({
 }: Props) {
   const [unlocked, setUnlocked] = useState(initiallyUnlocked);
   // isSaving: prevents double-tap while the async write is in flight.
-  // Crucially, we do NOT show a visible loading indicator — the element
-  // simply absorbs the tap and the colour will change when the write resolves.
+  // No visible loading indicator — the element simply absorbs the tap.
   const [isSaving, setIsSaving] = useState(false);
 
-  // The petal colour, interpolated via CSS transition (not JS animation).
   const petalColor = unlocked ? "#a3b18a" : "#d6d3d1";
 
   const handleActivate = useCallback(async () => {
-    // Only activate — the key is one-way. Once the wife activates it, she can
-    // choose to "rest" it (set unlocked=false) but this requires an explicit
-    // secondary UX that is out of Phase 2 scope.
-    if (unlocked || isSaving || !coupleId || !wifeLockPassphrase) return;
+    if (unlocked || isSaving || !wifeLockPassphrase) return;
 
     setIsSaving(true);
 
@@ -144,38 +137,21 @@ export default function AmbientSerenityKey({
         activatedAt: new Date().toISOString(),
       };
 
-      const payload = await encrypt(lockState, wifeLockPassphrase);
+      // Write to wife's IndexedDB only — NEVER to Supabase.
+      // SPEC §3.3: KeyState must not exist on husband's device.
+      // writeWife enforces WifeStoreKey type — 'KeyState' is valid here.
+      await writeWife<WifeLockState>("KeyState", lockState, wifeLockPassphrase);
 
-      const { error } = await upsertSession(coupleId, {
-        lock_ciphertext: payload.ciphertext,
-        lock_iv: payload.iv,
-        lock_salt: payload.salt,
-      });
-
-      if (error) {
-        // Silently roll back the optimistic update — the element returns to
-        // its resting colour without any user-visible error message (avoiding
-        // anxiety). The wife can try again by touching it again.
-        setUnlocked(false);
-      } else {
-        onActivated?.();
-      }
+      onActivated?.();
     } catch {
+      // Silently roll back — no visible error message (avoiding anxiety).
       setUnlocked(false);
     } finally {
       setIsSaving(false);
     }
-  }, [coupleId, isSaving, onActivated, unlocked, wifeLockPassphrase]);
+  }, [isSaving, onActivated, unlocked, wifeLockPassphrase]);
 
   return (
-    /*
-     * The outer element has role="button" with a vague but real accessibility
-     * label. The label "لمسة هدوء" ("touch of calm") is intentionally
-     * non-descriptive to an observer, while still giving the wife a meaningful
-     * affordance via screen-reader.
-     *
-     * tabIndex="0" + onKeyDown allows keyboard activation.
-     */
     <div
       role="button"
       tabIndex={0}
@@ -192,20 +168,27 @@ export default function AmbientSerenityKey({
         "inline-flex items-center justify-center cursor-pointer select-none",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
         "rounded-full p-1 transition-all duration-300",
-        // Subtle hover hint — slightly more visible, still not "button-like"
-        unlocked
-          ? "hover:opacity-80"
-          : "hover:opacity-70",
+        unlocked ? "hover:opacity-80" : "hover:opacity-70",
         isSaving ? "pointer-events-none" : "",
         className,
       ].join(" ")}
-      style={{
-        // No visible focus ring colour that would betray the element's purpose
-        // to a viewer behind the wife's shoulder.
-        outlineColor: "transparent",
-      }}
+      style={{ outlineColor: "transparent" }}
     >
       <BotanicalMotif color={petalColor} glowing={unlocked} />
     </div>
   );
+}
+
+// ─── Read helper (for parent components to load initial state) ────────────────
+
+/**
+ * يقرأ حالة المفتاح من IndexedDB الزوجة.
+ * يُستخدم عند تهيئة الواجهة لتحميل الحالة المخزَّنة.
+ *
+ * @param passphrase - عبارة مرور الزوجة الشخصية
+ * @returns 'open' إن كانت الزوجة قد فعّلت المفتاح، 'locked' بخلاف ذلك
+ */
+export async function readKeyState(passphrase: string): Promise<KeyState> {
+  const lock = await readWife<WifeLockState>("KeyState", passphrase);
+  return lock?.isIntimacyUnlocked ? "open" : "locked";
 }

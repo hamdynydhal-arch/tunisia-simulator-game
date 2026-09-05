@@ -5,13 +5,16 @@
  * palette appropriate for a trauma-informed therapeutic companion.
  * All child components inherit the warm stone background and the Cairo font
  * (already loaded in the root layout).
+ *
+ * SPEC §8.1: العنوان يستخدم SAKAN_CAMOUFLAGE_NAME — لا "سَكَن" ولا وصف علاجي.
  */
 
+import { SAKAN_CAMOUFLAGE_NAME } from "@/lib/sakan/camouflage";
+
 export const metadata = {
-  title: "سَكَن — مساحتك الآمنة",
-  description:
-    "تطبيق سَكَن: مساحة خاصة وآمنة لإعادة بناء الألفة والاطمئنان داخل العلاقة الزوجية.",
-  robots: "noindex, nofollow",   // therapeutic app — keep out of search indexes
+  title: SAKAN_CAMOUFLAGE_NAME,
+  description: "استعرض خياراتك وتفضيلاتك اليومية.",
+  robots: "noindex, nofollow",   // keep out of search indexes
 };
 
 export default function SakanLayout({

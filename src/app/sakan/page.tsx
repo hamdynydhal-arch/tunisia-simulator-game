@@ -3,24 +3,26 @@
 /**
  * Sakan (سَكَن) — Main onboarding page
  *
- * A client-side step wizard that orchestrates the three MVP Phase 1 screens:
+ * A client-side step wizard:
  *   Step 0 — Role selection (husband / wife)
- *   Step 1 — تمهيد الميثاق القصير  (CovenantIntro)
- *   Step 2 — أسئلة أسبوع صفر       (WeekZeroForm)
- *   Step 3 — ميثاق سكن الكامل      (SakanCovenant)
- *   Step 4 — Completion state
+ *   Step 1 — ميثاق سَكَن            (SakanCovenantScreen) — شاشة واحدة
+ *   Step 2 — أسئلة أسبوع صفر        (WeekZeroForm)
+ *   Step 3 — Completion state
  *
  * Architectural rules enforced here:
  * - Role is chosen BEFORE any content is shown — the wrong form is never rendered.
  * - Answers are held only in memory (AnswerMap); no persistence in Phase 1.
- * - Transition animations use CSS opacity + translate for a calm, unhurried feel.
+ * - The covenant screen is shown once on first run (localStorage flag), and stays
+ *   re-openable at any time from the settings entry — it never gates progress.
  */
 
 import { useReducer, useTransition } from "react";
 import type { SakanRole, SakanStep, AnswerMap } from "@/types/sakan";
-import CovenantIntro from "@/components/sakan/CovenantIntro";
 import WeekZeroForm from "@/components/sakan/WeekZeroForm";
-import SakanCovenant from "@/components/sakan/SakanCovenant";
+import SakanCovenantScreen, {
+  hasSeenCovenant,
+  markCovenantSeen,
+} from "@/components/sakan/SakanCovenantScreen";
 
 // ─── State machine ────────────────────────────────────────────────────────────
 
@@ -28,24 +30,35 @@ interface State {
   step: SakanStep | "complete";
   role: SakanRole | null;
   answers: AnswerMap;
+  /** True while the covenant is re-opened from the settings entry. */
+  covenantReopened: boolean;
 }
 
 type Action =
   | { type: "SELECT_ROLE"; role: SakanRole }
-  | { type: "NEXT_FROM_INTRO" }
+  | { type: "DISMISS_COVENANT" }
   | { type: "COMPLETE_FORM"; answers: AnswerMap }
-  | { type: "AGREE_COVENANT" };
+  | { type: "OPEN_COVENANT" }
+  | { type: "CLOSE_REOPENED_COVENANT" };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SELECT_ROLE":
-      return { ...state, role: action.role, step: "covenant-intro" };
-    case "NEXT_FROM_INTRO":
+      // شاشة الميثاق تُعرض مرة عند أول تشغيل فقط
+      return {
+        ...state,
+        role: action.role,
+        step: hasSeenCovenant() ? "week-zero" : "covenant",
+      };
+    case "DISMISS_COVENANT":
+      markCovenantSeen();
       return { ...state, step: "week-zero" };
     case "COMPLETE_FORM":
-      return { ...state, answers: action.answers, step: "full-covenant" };
-    case "AGREE_COVENANT":
-      return { ...state, step: "complete" };
+      return { ...state, answers: action.answers, step: "complete" };
+    case "OPEN_COVENANT":
+      return { ...state, covenantReopened: true };
+    case "CLOSE_REOPENED_COVENANT":
+      return { ...state, covenantReopened: false };
     default:
       return state;
   }
@@ -55,6 +68,7 @@ const initialState: State = {
   step: "role-select",
   role: null,
   answers: {},
+  covenantReopened: false,
 };
 
 // ─── Role selection screen ────────────────────────────────────────────────────
@@ -165,16 +179,30 @@ function RoleButton({
 
 // ─── Completion screen ────────────────────────────────────────────────────────
 
-function CompletionScreen({ role }: { role: SakanRole | null }) {
-  const pronoun = role === "wife" ? "كِ" : "كَ";
+/**
+ * ملاحظة: النص هنا كان يقتبس الميثاق القديم حرفياً ("النجاح هو…") ويستعمل
+ * "مرحلة" و"المراحل القادمة". حُدِّث ليطابق لغة الميثاق الجديد بعد حذف
+ * SakanCovenant.tsx — وإلا بقي اقتباس ليتيم بلغة ممنوعة.
+ */
+function CompletionScreen({
+  role,
+  onOpenCovenant,
+}: {
+  role: SakanRole | null;
+  onOpenCovenant: () => void;
+}) {
+  const isWife = role === "wife";
+  const thanks = isWife ? "شكرًا لكِ" : "شكرًا لك";
+  const body = isWife
+    ? "ما كتبتِه محفوظ على جهازكِ وحده."
+    : "ما كتبته محفوظ على جهازك وحده.";
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 gap-8 max-w-sm mx-auto text-center">
-      <div className="text-6xl">🌿</div>
-      <h1 className="text-xl font-bold text-stone-800">شكرًا ل{pronoun}</h1>
-      <p className="text-sm text-stone-600 leading-relaxed">
-        لقد أكملتَ مرحلة الأسبوع الصفر. إجاباتُ{pronoun} محفوظة وآمنة. سيواصل
-        سَكَن رفقتَ{pronoun} في المراحل القادمة.
-      </p>
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 gap-8 max-w-sm mx-auto text-center" dir="rtl">
+      <div className="text-6xl" aria-hidden>🌿</div>
+      <h1 className="text-xl font-bold text-stone-800">{thanks}</h1>
+      <p className="text-sm text-stone-600 leading-relaxed">{body}</p>
+
       <div
         className="rounded-2xl p-6 border w-full"
         style={{
@@ -183,14 +211,19 @@ function CompletionScreen({ role }: { role: SakanRole | null }) {
           borderColor: "rgba(107,127,120,0.25)",
         }}
       >
-        <p className="text-sm text-stone-700 font-semibold mb-2">
-          تذكُّر الميثاق:
-        </p>
-        <p className="text-sm text-stone-600 leading-relaxed italic">
-          "النجاح هو الانتهاء من جلسة دون ألم، والشعور بالأمان، والرغبة في
-          الجلوس معًا مرة أخرى."
+        <p className="text-sm text-stone-600 leading-relaxed">
+          هذه معايير هذه الأيام، لا سقف ما بينكما.
         </p>
       </div>
+
+      {/* مدخل الإعدادات الدائم إلى الميثاق */}
+      <button
+        type="button"
+        onClick={onOpenCovenant}
+        className="text-xs text-stone-400 hover:text-stone-600 underline underline-offset-4 transition-colors"
+      >
+        فتح ميثاق سَكَن
+      </button>
     </div>
   );
 }
@@ -205,6 +238,16 @@ export default function SakanPage() {
     startTransition(() => dispatch(action));
   }
 
+  // الميثاق المُعاد فتحه من الإعدادات يعلو على أي شاشة أخرى
+  if (state.covenantReopened && state.role) {
+    return (
+      <SakanCovenantScreen
+        role={state.role}
+        onDismiss={() => advance({ type: "CLOSE_REOPENED_COVENANT" })}
+      />
+    );
+  }
+
   return (
     <>
       {state.step === "role-select" && (
@@ -213,10 +256,10 @@ export default function SakanPage() {
         />
       )}
 
-      {state.step === "covenant-intro" && state.role && (
-        <CovenantIntro
+      {state.step === "covenant" && state.role && (
+        <SakanCovenantScreen
           role={state.role}
-          onContinue={() => advance({ type: "NEXT_FROM_INTRO" })}
+          onDismiss={() => advance({ type: "DISMISS_COVENANT" })}
         />
       )}
 
@@ -229,14 +272,12 @@ export default function SakanPage() {
         />
       )}
 
-      {state.step === "full-covenant" && state.role && (
-        <SakanCovenant
+      {state.step === "complete" && (
+        <CompletionScreen
           role={state.role}
-          onAgree={() => advance({ type: "AGREE_COVENANT" })}
+          onOpenCovenant={() => advance({ type: "OPEN_COVENANT" })}
         />
       )}
-
-      {state.step === "complete" && <CompletionScreen role={state.role} />}
     </>
   );
 }
