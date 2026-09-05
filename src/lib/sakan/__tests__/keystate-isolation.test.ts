@@ -220,7 +220,7 @@ viDescribe("Acceptance test #2 (Level 2) — HusbandDailyView render is KeyState
 
   const MOCK_HUSBAND_STATE = {
     shame: 50,
-    earnedCeilingLevel: 0,
+    earnedCeiling: 0,
     consecutivePositiveSessions: 0,
     updatedAt: "2024-01-01T00:00:00Z",
   };

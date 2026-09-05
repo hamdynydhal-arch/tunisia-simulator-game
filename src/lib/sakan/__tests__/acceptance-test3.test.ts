@@ -7,10 +7,16 @@
  * ويقابله في §1 القاعدة ٤: "لا عدّادات ولا سلاسل ولا نسب إنجاز، في أي واجهة
  * وفي أي نموذج مخزَّن. لا حقل `streak`، ولا `days_completed`، ولا `progress_percent`."
  *
- * ─── لماذا المسح غير حسّاس لحالة الأحرف ──────────────────────────────────────
+ * ─── لماذا المسح غير حسّاس لحالة الأحرف، وبلا استثناء واحد ───────────────────
  * المواصفة كتبت التعبير بلا راية `i`. لكن تعبيراً حسّاساً لحالة الأحرف يمرّره
  * `streakCount` أو `progressPercent` أو `Level` بحرف كبير. لذلك يُطبَّق هنا
  * غير حسّاس — وهو القراءة الوحيدة التي تجعل الاختبار ذا معنى.
+ *
+ * ولا توجد قائمة استثناءات إطلاقاً. الحقل الوحيد الذي كان يقع تحت التعبير
+ * (`earnedCeilingLevel`) أُعيدت تسميته إلى `earnedCeiling` بدل استثنائه:
+ * قاعدة بلا استثناء أمتن من قاعدة بحارس يحرس استثناءها، ومن يقرأ المواصفة
+ * لاحقاً لا يعرف سياق الاستثناء — والاستثناء الأول يجعل الثاني أسهل.
+ * البيانات القائمة بالاسم القديم تُرحَّل صامتةً في migrateStoredValue.
  *
  * ─── المنهج: مصدر + وقت تشغيل ────────────────────────────────────────────────
  * المستوى ١ — مسح إعلانات الأنواع: تُستخرج أسماء الحقول من كل واجهة تُخزَّن
@@ -41,26 +47,6 @@ import type {
 // ─── التعبير المحظور (SPEC §8.3، غير حسّاس لحالة الأحرف) ─────────────────────
 
 const FORBIDDEN_FIELD = /streak|progress|completed_days|score|level/i;
-
-// ─── استثناء واحد معلَن ومحروس ───────────────────────────────────────────────
-
-/**
- * `earnedCeilingLevel` يحوي "Level" فيقع تحت التعبير غير الحسّاس لحالة الأحرف.
- * لكنه ليس عدّاد إنجاز: هو سقف الشدّة العلاجي في §4.1، ينخفض درجة كاملة فوراً
- * عند أي تجاوز، ولا يُعرض للمستخدم قط (يثبت ذلك AT4 و AT11 بتطابق HTML كامل).
- *
- * ⚠ حالة مؤقتة تنتظر قرار صاحب المشروع: إمّا إعادة تسميته إلى `earnedCeiling`
- *   (٣٥ موضعاً في ١٠ ملفات، ويغيّر شكل البيانات المخزَّنة في IndexedDB)،
- *   وإمّا تثبيت هذا الاستثناء في §8.3 من المواصفة.
- *
- * الحارس أدناه يمنع نموّ هذه القائمة بصمت: أي اسم يُضاف إليها يُفشل الاختبار.
- */
-const DECLARED_EXEMPTIONS: readonly string[] = ["earnedCeilingLevel"] as const;
-
-function isForbidden(field: string): boolean {
-  if (DECLARED_EXEMPTIONS.includes(field)) return false;
-  return FORBIDDEN_FIELD.test(field);
-}
 
 // ─── المستوى ١: مسح إعلانات الأنواع ──────────────────────────────────────────
 
@@ -105,14 +91,14 @@ const NOW = "2025-06-15T12:00:00Z";
 const SAMPLE_WIFE_STATE: WifeState = {
   safety: 70,
   trust: 60,
-  earnedCeilingLevel: 3,
+  earnedCeiling: 3,
   consecutivePositiveSessions: 2,
   updatedAt: NOW,
 };
 
 const SAMPLE_HUSBAND_STATE: HusbandState = {
   shame: 50,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: NOW,
 };
@@ -179,18 +165,13 @@ describe("Acceptance test #3 (§8.3 L1) — no forbidden field name in any store
     }
   });
 
-  it("guard: the exemption list holds exactly the one reviewed name", () => {
-    // يمنع تمرير حقل جديد بإضافته إلى الاستثناءات بدل تسميته تسمية صحيحة
-    expect(DECLARED_EXEMPTIONS).toEqual(["earnedCeilingLevel"]);
-  });
-
   for (const interfaceName of STORED_INTERFACES) {
     it(`${interfaceName} declares no field matching the forbidden pattern`, () => {
       const fields = extractFields(source, interfaceName);
 
       for (const field of fields) {
         expect(
-          isForbidden(field),
+          FORBIDDEN_FIELD.test(field),
           `stored model ${interfaceName} declares forbidden field "${field}" ` +
             `— matches /streak|progress|completed_days|score|level/i (SPEC §8.3)`
         ).toBe(false);
@@ -222,7 +203,7 @@ describe("Acceptance test #3 (§8.3 L2) — no forbidden key in any real stored 
     it(`${label} contains no forbidden key at any depth`, () => {
       for (const key of deepKeys(sample)) {
         expect(
-          isForbidden(key),
+          FORBIDDEN_FIELD.test(key),
           `stored object ${label} carries forbidden key "${key}" ` +
             `— matches /streak|progress|completed_days|score|level/i (SPEC §8.3)`
         ).toBe(false);

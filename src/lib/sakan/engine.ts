@@ -94,7 +94,7 @@ export function computeCeiling(ctx: CeilingContext): number {
   }
 
   // ─── الزوج — السقف مقفول عند 0 دائماً (SPEC §4.1) ────────────────────────
-  // لا يرفعه earnedCeilingLevel، ولا الجلسات الإيجابية، ولا مرور الوقت،
+  // لا يرفعه earnedCeiling، ولا الجلسات الإيجابية، ولا مرور الوقت،
   // ولا حالة المفتاح. مساره كله intensity 0: مهارات ومعلومات بلا محتوى اقتراب.
   //
   // هذا لا يُضعف العزل البنيوي في §3.3 — بل يُقوّيه: السقف ثابت بحكم الدور
@@ -205,7 +205,7 @@ const BOOST_SCORE = 1_000;
  * هل دخلنا وضع السكون؟
  * يعود true إن مضى ≥21 يوماً على آخر تغيّر في المقاييس.
  *
- * @param metricsMovedAt  تاريخ آخر تغيّر في earnedCeilingLevel (ISO-8601)
+ * @param metricsMovedAt  تاريخ آخر تغيّر في earnedCeiling (ISO-8601)
  * @param now             التاريخ الحالي (اختياري — للاختبارات، افتراضيه new Date())
  */
 export function isDormant(metricsMovedAt: string, now?: string): boolean {
@@ -300,7 +300,7 @@ export function applyCardRating(
 }
 
 /**
- * يُسجِّل حركة في المقاييس (تغيّر earnedCeilingLevel) — يُعيد ضبط مؤقّت السكون.
+ * يُسجِّل حركة في المقاييس (تغيّر earnedCeiling) — يُعيد ضبط مؤقّت السكون.
  * يُستدعى من page shell كلما تغيّر earnedLevel نتيجة applySessionSignal.
  * دالة نقية — لا آثار جانبية.
  */

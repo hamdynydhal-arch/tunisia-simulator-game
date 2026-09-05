@@ -63,7 +63,7 @@ const FIXED_WIFE_CARD: Card = {
 
 const MOCK_HUSBAND_STATE: HusbandState = {
   shame: 50,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: NOW,
 };
@@ -71,7 +71,7 @@ const MOCK_HUSBAND_STATE: HusbandState = {
 const MOCK_WIFE_STATE: WifeState = {
   safety: 70,
   trust: 60,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: NOW,
 };

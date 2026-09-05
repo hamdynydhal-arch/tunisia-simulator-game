@@ -140,6 +140,41 @@ async function getHusbandDb(): Promise<IDBDatabase> {
   return _husbandDb;
 }
 
+// ─── ترحيل صامت للبيانات القائمة ─────────────────────────────────────────────
+
+/**
+ * الحقل `earnedCeilingLevel` أُعيدت تسميته إلى `earnedCeiling`.
+ * السبب: كلمة "Level" كانت تُوقعه تحت التعبير المحظور في §8.3
+ * (`/streak|progress|completed_days|score|level/i`) رغم أنه سقف علاجي
+ * لا عدّاد إنجاز. القاعدة بلا استثناء أمتن من قاعدة بحارس يحرس استثناءها.
+ *
+ * الأجهزة التي كتبت الاسم القديم قبل التغيير تُقرأ هنا وتُحوَّل:
+ * - **بلا فقدان:** القيمة تُنقل كما هي إلى الاسم الجديد.
+ * - **بلا أثر مرئي:** لا رسالة، ولا سجلّ، ولا إعادة كتابة فورية.
+ *   الشكل الجديد يُحفظ طبيعياً عند أول كتابة تالية.
+ * - **بلا أولوية على الجديد:** إن وُجد الاسمان معاً فالجديد هو المُعتمَد.
+ *
+ * الترحيل يُطبَّق على كل قراءة من المخزنين، فأي مفتاح يحمل الحقل يُغطَّى.
+ */
+const LEGACY_CEILING_FIELD = "earnedCeilingLevel";
+
+export function migrateStoredValue<T>(value: T): T {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (!(LEGACY_CEILING_FIELD in record)) return value;
+
+  const { [LEGACY_CEILING_FIELD]: legacy, ...rest } = record;
+
+  // الاسم الجديد — إن وُجد — يعلو على القديم؛ وإلا تُنقل قيمة القديم كما هي
+  return {
+    ...rest,
+    earnedCeiling: "earnedCeiling" in rest ? rest.earnedCeiling : legacy,
+  } as T;
+}
+
 // ─── Typed write helpers ──────────────────────────────────────────────────────
 
 /**
@@ -169,7 +204,7 @@ export async function readWife<T>(
   if (!raw) return null;
   try {
     const payload = JSON.parse(raw) as EncryptedPayload;
-    return await decrypt<T>(payload, passphrase);
+    return migrateStoredValue(await decrypt<T>(payload, passphrase));
   } catch {
     return null;
   }
@@ -204,7 +239,7 @@ export async function readHusband<T>(
   if (!raw) return null;
   try {
     const payload = JSON.parse(raw) as EncryptedPayload;
-    return await decrypt<T>(payload, passphrase);
+    return migrateStoredValue(await decrypt<T>(payload, passphrase));
   } catch {
     return null;
   }

@@ -125,7 +125,7 @@ const INITIAL_STATE: PageState = {
 const DEFAULT_WIFE_STATE: WifeState = {
   safety: 50,
   trust: 50,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: new Date().toISOString(),
 };
@@ -230,7 +230,7 @@ async function loadSession(
     role: "wife",
     keyState: ks,
     safety: wifeState.safety,
-    earnedLevel: wifeState.earnedCeilingLevel,
+    earnedLevel: wifeState.earnedCeiling,
   });
 
   const card = selectCardWithLearning(
@@ -378,7 +378,7 @@ export default function WifeDailyPage() {
 
       const newCeiling = applySessionSignal(
         {
-          earnedLevel: wifeState.earnedCeilingLevel,
+          earnedLevel: wifeState.earnedCeiling,
           consecutivePositiveSessions: wifeState.consecutivePositiveSessions,
         },
         signal,
@@ -387,7 +387,7 @@ export default function WifeDailyPage() {
 
       const updated: WifeState = {
         ...wifeState,
-        earnedCeilingLevel: newCeiling.earnedLevel,
+        earnedCeiling: newCeiling.earnedLevel,
         consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
         updatedAt: now,
       };
@@ -396,7 +396,7 @@ export default function WifeDailyPage() {
       let updatedLearning = applyCardRating(learningState, card, rating, now);
 
       // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
-      if (newCeiling.earnedLevel !== wifeState.earnedCeilingLevel) {
+      if (newCeiling.earnedLevel !== wifeState.earnedCeiling) {
         updatedLearning = applyMetricChange(updatedLearning, now);
       }
 
@@ -440,7 +440,7 @@ export default function WifeDailyPage() {
 
     const newCeiling = applySessionSignal(
       {
-        earnedLevel: wifeState.earnedCeilingLevel,
+        earnedLevel: wifeState.earnedCeiling,
         consecutivePositiveSessions: wifeState.consecutivePositiveSessions,
       },
       signal,
@@ -449,13 +449,13 @@ export default function WifeDailyPage() {
 
     const updated: WifeState = {
       ...wifeState,
-      earnedCeilingLevel: newCeiling.earnedLevel,
+      earnedCeiling: newCeiling.earnedLevel,
       consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
       updatedAt: now,
     };
 
     // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
-    if (newCeiling.earnedLevel !== wifeState.earnedCeilingLevel) {
+    if (newCeiling.earnedLevel !== wifeState.earnedCeiling) {
       updatedLearning = applyMetricChange(updatedLearning, now);
     }
 

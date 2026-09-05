@@ -303,7 +303,7 @@ describe("Acceptance test #1 (§8.1 L2) — no intensity > 0 card is ever REACHA
 /**
  * SPEC §4.1 (بعد تصحيح المواصفة):
  *
- *   "سقف الزوج مقفول عند 0 دائماً. لا يرتفع بحال: لا بـ earnedCeilingLevel،
+ *   "سقف الزوج مقفول عند 0 دائماً. لا يرتفع بحال: لا بـ earnedCeiling،
  *    ولا بجلسات إيجابية، ولا بمرور الوقت، ولا بحالة المفتاح. مساره كله
  *    intensity: 0 — مهارات ومعلومات، بلا أي محتوى اقتراب."
  *
@@ -363,7 +363,7 @@ describe("Acceptance test #1 (§4.1 L3) — husband ceiling is 0 for EVERY input
                   card.intensity,
                   `card "${card.id}" (intensity ${card.intensity}) is reachable ` +
                     `by the husband — catalogue: ${catalogueLabel}, ` +
-                    `earnedCeilingLevel: ${earnedLevel}, shame: ${shame}, ` +
+                    `earnedCeiling: ${earnedLevel}, shame: ${shame}, ` +
                     `flags: [${flags.join(",")}], learning: ${learningLabel}`
                 ).toBe(0);
               }

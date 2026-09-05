@@ -78,7 +78,7 @@ for (const earned of [0, 1, 2, 3, 4, 5]) {
   for (const shame of [0, 50, 100]) {
     HUSBAND_STATES.push({
       shame,
-      earnedCeilingLevel: earned,
+      earnedCeiling: earned,
       consecutivePositiveSessions: 0,
       updatedAt: NOW,
     });
@@ -151,7 +151,7 @@ function describeCombination(index: number): string {
 
   return (
     `step=${step}, card=${card ? `${card.id}(i${card.intensity})` : "null"}, ` +
-    `mood=${mood ?? "null"}, earnedLevel=${hs.earnedCeilingLevel}, shame=${hs.shame}`
+    `mood=${mood ?? "null"}, earnedLevel=${hs.earnedCeiling}, shame=${hs.shame}`
   );
 }
 

@@ -118,7 +118,7 @@ const INITIAL_STATE: PageState = {
 
 const DEFAULT_HUSBAND_STATE: HusbandState = {
   shame: 50,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: new Date().toISOString(),
 };
@@ -220,7 +220,7 @@ async function loadSession(
   const ceiling = computeCeiling({
     role: "husband",
     shame: husbandState.shame,
-    earnedLevel: husbandState.earnedCeilingLevel,
+    earnedLevel: husbandState.earnedCeiling,
   });
 
   const card = selectCardWithLearning(
@@ -370,7 +370,7 @@ export default function HusbandDailyPage() {
 
       const newCeiling = applySessionSignal(
         {
-          earnedLevel: husbandState.earnedCeilingLevel,
+          earnedLevel: husbandState.earnedCeiling,
           consecutivePositiveSessions: husbandState.consecutivePositiveSessions,
         },
         signal,
@@ -379,7 +379,7 @@ export default function HusbandDailyPage() {
 
       const updated: HusbandState = {
         ...husbandState,
-        earnedCeilingLevel: newCeiling.earnedLevel,
+        earnedCeiling: newCeiling.earnedLevel,
         consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
         updatedAt: now,
       };
@@ -388,7 +388,7 @@ export default function HusbandDailyPage() {
       let updatedLearning = applyCardRating(learningState, card, rating, now);
 
       // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
-      if (newCeiling.earnedLevel !== husbandState.earnedCeilingLevel) {
+      if (newCeiling.earnedLevel !== husbandState.earnedCeiling) {
         updatedLearning = applyMetricChange(updatedLearning, now);
       }
 
@@ -432,7 +432,7 @@ export default function HusbandDailyPage() {
 
     const newCeiling = applySessionSignal(
       {
-        earnedLevel: husbandState.earnedCeilingLevel,
+        earnedLevel: husbandState.earnedCeiling,
         consecutivePositiveSessions: husbandState.consecutivePositiveSessions,
       },
       signal,
@@ -441,13 +441,13 @@ export default function HusbandDailyPage() {
 
     const updated: HusbandState = {
       ...husbandState,
-      earnedCeilingLevel: newCeiling.earnedLevel,
+      earnedCeiling: newCeiling.earnedLevel,
       consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
       updatedAt: now,
     };
 
     // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
-    if (newCeiling.earnedLevel !== husbandState.earnedCeilingLevel) {
+    if (newCeiling.earnedLevel !== husbandState.earnedCeiling) {
       updatedLearning = applyMetricChange(updatedLearning, now);
     }
 

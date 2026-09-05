@@ -74,7 +74,7 @@ const MOCK_CARD = {
 
 const MOCK_HUSBAND_STATE = {
   shame: 50,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: "2024-01-01T00:00:00Z",
 };
@@ -82,7 +82,7 @@ const MOCK_HUSBAND_STATE = {
 const MOCK_WIFE_STATE = {
   safety: 70,
   trust: 60,
-  earnedCeilingLevel: 0,
+  earnedCeiling: 0,
   consecutivePositiveSessions: 0,
   updatedAt: "2024-01-01T00:00:00Z",
 };

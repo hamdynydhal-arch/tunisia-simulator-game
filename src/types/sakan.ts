@@ -461,10 +461,10 @@ export interface WifeState {
    * ينزل −1 فوراً عند أي تجاوز (skip/close) لبطاقة intensity ≥ 1.
    * المجال: 0–5.
    */
-  earnedCeilingLevel: number;
+  earnedCeiling: number;
 
   /**
-   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeilingLevel.
+   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeiling.
    * يُعاد ضبطه إلى 0 عند كل تجاوز أو عند الارتفاع.
    */
   consecutivePositiveSessions: number;
@@ -482,10 +482,10 @@ export interface HusbandState {
    * SPEC §4.1 — سقف الشدة المكتسب (نفس آلية الزوجة، بلا keyState).
    * المجال: 0–5.
    */
-  earnedCeilingLevel: number;
+  earnedCeiling: number;
 
   /**
-   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeilingLevel.
+   * عدد الجلسات الإيجابية المتتالية منذ آخر تغيير في earnedCeiling.
    */
   consecutivePositiveSessions: number;
 
@@ -519,7 +519,7 @@ export interface FamilyBoost {
  * حالة التعلّم — مخزَّنة في IndexedDB تحت key: 'LearningState' لكل طرف.
  * كل الحقول مُدارة عبر دوال نقية في engine.ts — لا تعديل مباشر.
  *
- * metricsMovedAt: آخر مرة تغيّر فيها earnedCeilingLevel — لحساب السكون.
+ * metricsMovedAt: آخر مرة تغيّر فيها earnedCeiling — لحساب السكون.
  * lastCardShownAt: آخر مرة عُرضت فيها بطاقة — لإيقاع السكون (3 أيام).
  */
 export interface LearningState {
