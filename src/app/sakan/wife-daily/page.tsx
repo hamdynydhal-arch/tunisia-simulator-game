@@ -4,22 +4,41 @@
  * Sakan (سَكَن) — Wife Daily Page (الصفحة اليومية للزوجة)
  *
  * ─── مسار البيانات ────────────────────────────────────────────────────────────
- * ١. يقرأ WifeState من IndexedDB
+ * ١. يقرأ WifeState + LearningState من IndexedDB
  * ٢. يقرأ KeyState عبر readKeyState (من AmbientSerenityKey) لحساب السقف
- * ٣. يحسب السقف عبر computeCeiling (مع keyState)
- * ٤. يختار بطاقة عبر selectCard
- * ٥. يُمرّر كل شيء إلى WifeDailyView (مكوّن عرض)
+ * ٣. يتحقق من وضع السكون (§4.4) وإيقاع البطاقة
+ * ٤. يحسب السقف عبر computeCeiling (مع keyState)
+ * ٥. يختار بطاقة عبر selectCardWithLearning (§4.3 + §4.4)
+ * ٦. يُمرّر كل شيء إلى WifeDailyView (مكوّن عرض)
  *
  * ─── AmbientSerenityKey ──────────────────────────────────────────────────────
  * هذه الصفحة تقرأ حالة المفتاح (readKeyState) لحساب السقف فقط.
  * المكوّن المرئي (البتلات الزهرية) لا يظهر هنا — الإعدادات فقط.
  * بلا بادجة، بلا أثر بصري، بلا إشارة إلى المفتاح في هذه الصفحة.
+ *
+ * ─── حلقة التعلّم (§4.3) ──────────────────────────────────────────────────────
+ * - بطاقة تُجوَّز مرتين → تهميش 60 يوماً (applyCardSkip)
+ * - تقييم راحة ≥3 → تعزيز عائلة البطاقة (applyCardRating)
+ * - تغيّر earnedLevel → تسجيل حركة المقاييس (applyMetricChange)
+ *
+ * ─── وضع السكون (§4.4) ─────────────────────────────────────────────────────────
+ * - 21 يوماً بلا حركة → intensity=0 فقط، بطاقة كل 3 أيام.
+ * - الانتقال والخروج صامتان — لا نص، لا إشارة.
  */
 
 import { useReducer, useEffect, useCallback } from "react";
-import type { WifeState, SessionSignal, Card, KeyState } from "@/types/sakan";
+import type { WifeState, SessionSignal, Card, KeyState, LearningState } from "@/types/sakan";
 import { readWife, writeWife } from "@/lib/sakan/idb";
-import { computeCeiling, selectCard, applySessionSignal } from "@/lib/sakan/engine";
+import {
+  computeCeiling,
+  selectCardWithLearning,
+  applySessionSignal,
+  applyCardSkip,
+  applyCardRating,
+  applyMetricChange,
+  isDormant,
+  shouldShowCardToday,
+} from "@/lib/sakan/engine";
 import { ALL_CARDS } from "@/lib/sakan/cards";
 import { readKeyState } from "@/components/sakan/AmbientSerenityKey";
 import WifeDailyView, { type DailyStep } from "@/components/sakan/WifeDailyView";
@@ -30,6 +49,7 @@ interface PageState {
   passphrase: string | null;
   passphraseInput: string;
   wifeState: WifeState | null;
+  learningState: LearningState | null;
   keyState: KeyState;
   card: Card | null;
   step: DailyStep;
@@ -44,6 +64,7 @@ const INITIAL_STATE: PageState = {
   passphrase: null,
   passphraseInput: "",
   wifeState: null,
+  learningState: null,
   keyState: "locked",
   card: null,
   step: "done",
@@ -62,17 +83,26 @@ const DEFAULT_WIFE_STATE: WifeState = {
   updatedAt: new Date().toISOString(),
 };
 
+function makeDefaultLearning(now: string): LearningState {
+  return {
+    skipsByCard: {},
+    familyBoosts: [],
+    metricsMovedAt: now, // جلسة جديدة → ليس في وضع السكون
+    lastCardShownAt: null,
+  };
+}
+
 type Action =
   | { type: "SET_INPUT"; value: string }
   | { type: "LOAD_START" }
-  | { type: "LOAD_DONE"; passphrase: string; wifeState: WifeState; keyState: KeyState; card: Card | null }
+  | { type: "LOAD_DONE"; passphrase: string; wifeState: WifeState; learningState: LearningState; keyState: KeyState; card: Card | null }
   | { type: "LOAD_ERROR"; message: string }
   | { type: "SET_MOOD"; mood: string }
   | { type: "SKIP" }
   | { type: "CARD_DONE" }
   | { type: "EXERCISE_DONE" }
   | { type: "RATING_SELECTED"; rating: 1 | 2 | 3 | 4 | 5 }
-  | { type: "STATE_SAVED"; wifeState: WifeState };
+  | { type: "STATE_SAVED"; wifeState: WifeState; learningState: LearningState };
 
 function reducer(state: PageState, action: Action): PageState {
   switch (action.type) {
@@ -89,6 +119,7 @@ function reducer(state: PageState, action: Action): PageState {
         ...state,
         passphrase: action.passphrase,
         wifeState: action.wifeState,
+        learningState: action.learningState,
         keyState: action.keyState,
         card: action.card,
         step: action.card ? "card" : "done",
@@ -117,7 +148,7 @@ function reducer(state: PageState, action: Action): PageState {
       return { ...state, step: "done" };
 
     case "STATE_SAVED":
-      return { ...state, wifeState: action.wifeState };
+      return { ...state, wifeState: action.wifeState, learningState: action.learningState };
 
     default:
       return state;
@@ -130,13 +161,23 @@ async function loadSession(
   passphrase: string,
   shownCardIds: Set<string>,
   lastCardId: string | undefined,
-): Promise<{ wifeState: WifeState; keyState: KeyState; card: Card | null }> {
-  const [stored, ks] = await Promise.all([
+): Promise<{ wifeState: WifeState; learningState: LearningState; keyState: KeyState; card: Card | null }> {
+  const now = new Date().toISOString();
+
+  const [stored, learnStored, ks] = await Promise.all([
     readWife<WifeState>("State", passphrase),
+    readWife<LearningState>("LearningState", passphrase),
     readKeyState(passphrase),
   ]);
 
-  const wifeState = stored ?? { ...DEFAULT_WIFE_STATE, updatedAt: new Date().toISOString() };
+  const wifeState = stored ?? { ...DEFAULT_WIFE_STATE, updatedAt: now };
+  const learning = learnStored ?? makeDefaultLearning(now);
+
+  // §4.4: تحقق من وضع السكون وإيقاع البطاقة
+  const dormant = isDormant(learning.metricsMovedAt, now);
+  if (!shouldShowCardToday(dormant, learning.lastCardShownAt, now)) {
+    return { wifeState, learningState: learning, keyState: ks, card: null };
+  }
 
   const ceiling = computeCeiling({
     role: "wife",
@@ -145,17 +186,28 @@ async function loadSession(
     earnedLevel: wifeState.earnedCeilingLevel,
   });
 
-  const card = selectCard({
-    role: "wife",
-    ceiling,
-    cards: ALL_CARDS,
-    safety: wifeState.safety,
-    flags: [],
-    shownCardIds,
-    lastCardId,
-  });
+  const card = selectCardWithLearning(
+    {
+      role: "wife",
+      ceiling,
+      cards: ALL_CARDS,
+      safety: wifeState.safety,
+      flags: [],
+      shownCardIds,
+      lastCardId,
+    },
+    learning,
+    now,
+  );
 
-  return { wifeState, keyState: ks, card };
+  // تسجيل أن بطاقة عُرضت — يُحدِّث lastCardShownAt في IndexedDB
+  let updatedLearning = learning;
+  if (card) {
+    updatedLearning = { ...learning, lastCardShownAt: now };
+    await writeWife<LearningState>("LearningState", updatedLearning, passphrase);
+  }
+
+  return { wifeState, learningState: updatedLearning, keyState: ks, card };
 }
 
 // ─── مربع عبارة المرور ──────────────────────────────────────────────────────
@@ -230,8 +282,8 @@ export default function WifeDailyPage() {
       if (cached) {
         dispatch({ type: "LOAD_START" });
         loadSession(cached, state.shownCardIds, state.lastCardId).then(
-          ({ wifeState, keyState, card }) => {
-            dispatch({ type: "LOAD_DONE", passphrase: cached, wifeState, keyState, card });
+          ({ wifeState, learningState, keyState, card }) => {
+            dispatch({ type: "LOAD_DONE", passphrase: cached, wifeState, learningState, keyState, card });
           },
           () => {
             window.sessionStorage.removeItem("s.pp");
@@ -246,13 +298,13 @@ export default function WifeDailyPage() {
     async (pp: string) => {
       dispatch({ type: "LOAD_START" });
       try {
-        const { wifeState, keyState, card } = await loadSession(
+        const { wifeState, learningState, keyState, card } = await loadSession(
           pp,
           state.shownCardIds,
           state.lastCardId
         );
         try { window.sessionStorage.setItem("s.pp", pp); } catch { /* صامت */ }
-        dispatch({ type: "LOAD_DONE", passphrase: pp, wifeState, keyState, card });
+        dispatch({ type: "LOAD_DONE", passphrase: pp, wifeState, learningState, keyState, card });
       } catch {
         dispatch({ type: "LOAD_ERROR", message: "عبارة المرور غير صحيحة" });
       }
@@ -264,15 +316,17 @@ export default function WifeDailyPage() {
     async (rating: 1 | 2 | 3 | 4 | 5) => {
       dispatch({ type: "RATING_SELECTED", rating });
 
-      const { passphrase, wifeState, card } = state;
-      if (!passphrase || !wifeState || !card) return;
+      const { passphrase, wifeState, card, learningState } = state;
+      if (!passphrase || !wifeState || !card || !learningState) return;
+
+      const now = new Date().toISOString();
 
       const signal: SessionSignal = {
         cardId: card.id,
         response: "accepted",
         comfortRating: rating,
         durationSec: 0,
-        recordedAt: new Date().toISOString(),
+        recordedAt: now,
       };
 
       const newCeiling = applySessionSignal(
@@ -288,11 +342,22 @@ export default function WifeDailyPage() {
         ...wifeState,
         earnedCeilingLevel: newCeiling.earnedLevel,
         consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
 
-      await writeWife<WifeState>("State", updated, passphrase);
-      dispatch({ type: "STATE_SAVED", wifeState: updated });
+      // §4.3: تسجيل تقييم الراحة → تعزيز العائلة
+      let updatedLearning = applyCardRating(learningState, card, rating, now);
+
+      // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
+      if (newCeiling.earnedLevel !== wifeState.earnedCeilingLevel) {
+        updatedLearning = applyMetricChange(updatedLearning, now);
+      }
+
+      await Promise.all([
+        writeWife<WifeState>("State", updated, passphrase),
+        writeWife<LearningState>("LearningState", updatedLearning, passphrase),
+      ]);
+      dispatch({ type: "STATE_SAVED", wifeState: updated, learningState: updatedLearning });
     },
     [state]
   );
@@ -300,14 +365,30 @@ export default function WifeDailyPage() {
   const handleSkip = useCallback(async () => {
     dispatch({ type: "SKIP" });
 
-    const { passphrase, wifeState, card } = state;
-    if (!passphrase || !wifeState || !card || card.intensity < 1) return;
+    const { passphrase, wifeState, card, learningState } = state;
+    if (!passphrase || !wifeState || !card || !learningState) return;
+
+    const now = new Date().toISOString();
+
+    // §4.3: تسجيل التجاوز → قد يُفعِّل التهميش
+    let updatedLearning = applyCardSkip(learningState, card.id, now);
+
+    if (card.intensity < 1) {
+      // بطاقة intensity=0 لا تُغيِّر earnedLevel → نحفظ فقط التعلّم
+      await writeWife<LearningState>("LearningState", updatedLearning, passphrase);
+      dispatch({
+        type: "STATE_SAVED",
+        wifeState,
+        learningState: updatedLearning,
+      });
+      return;
+    }
 
     const signal: SessionSignal = {
       cardId: card.id,
       response: "skipped",
       durationSec: 0,
-      recordedAt: new Date().toISOString(),
+      recordedAt: now,
     };
 
     const newCeiling = applySessionSignal(
@@ -323,11 +404,19 @@ export default function WifeDailyPage() {
       ...wifeState,
       earnedCeilingLevel: newCeiling.earnedLevel,
       consecutivePositiveSessions: newCeiling.consecutivePositiveSessions,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
-    await writeWife<WifeState>("State", updated, passphrase);
-    dispatch({ type: "STATE_SAVED", wifeState: updated });
+    // §4.3: إن تغيّر earnedLevel → تسجيل حركة المقاييس
+    if (newCeiling.earnedLevel !== wifeState.earnedCeilingLevel) {
+      updatedLearning = applyMetricChange(updatedLearning, now);
+    }
+
+    await Promise.all([
+      writeWife<WifeState>("State", updated, passphrase),
+      writeWife<LearningState>("LearningState", updatedLearning, passphrase),
+    ]);
+    dispatch({ type: "STATE_SAVED", wifeState: updated, learningState: updatedLearning });
   }, [state]);
 
   // ─── عرض ───────────────────────────────────────────────────────────────────

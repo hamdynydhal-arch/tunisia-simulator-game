@@ -11,7 +11,15 @@
  *   يُفشل اختبار القبول ٢ إن خُرق.
  */
 
-import type { Card, CardIntensity, SakanRole, SessionSignal } from "@/types/sakan";
+import type {
+  Card,
+  CardIntensity,
+  SakanRole,
+  SessionSignal,
+  LearningState,
+  FamilyBoost,
+  CardSkipEntry,
+} from "@/types/sakan";
 
 // ─── سياق السقف ──────────────────────────────────────────────────────────────
 
@@ -168,6 +176,136 @@ export interface SelectCardParams {
   lastCardId?: string;
 }
 
+// ─── §4.3 + §4.4 — ثوابت حلقة التعلّم ووضع السكون ──────────────────────────
+
+/** أيام بلا تغيّر في المقاييس قبل الدخول في وضع السكون. */
+const DORMANCY_DAYS = 21;
+/** أيام الانتظار بين بطاقة وأخرى في وضع السكون. */
+const DORMANCY_CADENCE_DAYS = 3;
+/** أيام التهميش بعد تجاوز البطاقة مرتين. */
+const DEPRIORITIZE_DAYS = 60;
+/** عدد التجاوزات التي تُفعِّل التهميش. */
+const SKIP_THRESHOLD = 2;
+/** درجة التهميش في الترتيب — تُدفع البطاقة للحضيض. */
+const DEPRIO_SCORE = -10_000;
+/** درجة تعزيز العائلة في الترتيب — ترتفع البطاقة في الأولوية. */
+const BOOST_SCORE = 1_000;
+
+// ─── §4.4 — وضع السكون ───────────────────────────────────────────────────────
+
+/**
+ * هل دخلنا وضع السكون؟
+ * يعود true إن مضى ≥21 يوماً على آخر تغيّر في المقاييس.
+ *
+ * @param metricsMovedAt  تاريخ آخر تغيّر في earnedCeilingLevel (ISO-8601)
+ * @param now             التاريخ الحالي (اختياري — للاختبارات، افتراضيه new Date())
+ */
+export function isDormant(metricsMovedAt: string, now?: string): boolean {
+  const nowMs  = now ? Date.parse(now) : Date.now();
+  const lastMs = Date.parse(metricsMovedAt);
+  return nowMs - lastMs >= DORMANCY_DAYS * 24 * 60 * 60 * 1_000;
+}
+
+/**
+ * هل يُفترض عرض بطاقة اليوم؟
+ * - خارج السكون: دائماً true.
+ * - في السكون: true إن لم تُعرض بطاقة من قبل، أو مضى ≥3 أيام على آخر بطاقة.
+ *
+ * @param dormant          ناتج isDormant
+ * @param lastCardShownAt  تاريخ آخر بطاقة (ISO-8601 | null)
+ * @param now              التاريخ الحالي (اختياري)
+ */
+export function shouldShowCardToday(
+  dormant: boolean,
+  lastCardShownAt: string | null,
+  now?: string,
+): boolean {
+  if (!dormant) return true;
+  if (!lastCardShownAt) return true;
+  const nowMs  = now ? Date.parse(now) : Date.now();
+  const lastMs = Date.parse(lastCardShownAt);
+  return nowMs - lastMs >= DORMANCY_CADENCE_DAYS * 24 * 60 * 60 * 1_000;
+}
+
+// ─── §4.3 — حلقة التعلّم ─────────────────────────────────────────────────────
+
+/**
+ * يُسجِّل تجاوزاً لبطاقة ويُفعِّل التهميش عند بلوغ العتبة.
+ * دالة نقية — لا آثار جانبية.
+ *
+ * @param state   حالة التعلّم الحالية
+ * @param cardId  معرّف البطاقة المتجاوَزة
+ * @param now     التاريخ الحالي (اختياري)
+ */
+export function applyCardSkip(
+  state: LearningState,
+  cardId: string,
+  now?: string,
+): LearningState {
+  const existing: CardSkipEntry = state.skipsByCard[cardId] ?? { count: 0 };
+  const newCount = existing.count + 1;
+
+  const entry: CardSkipEntry = { count: newCount };
+
+  if (newCount >= SKIP_THRESHOLD) {
+    const base = now ? new Date(now) : new Date();
+    const until = new Date(base.getTime() + DEPRIORITIZE_DAYS * 24 * 60 * 60 * 1_000);
+    entry.deprioritizedUntil = until.toISOString();
+  }
+
+  return {
+    ...state,
+    skipsByCard: { ...state.skipsByCard, [cardId]: entry },
+  };
+}
+
+/**
+ * يُعدِّل أولوية عائلة البطاقة استناداً إلى تقييم الراحة.
+ * تقييم ≥3 يُنشئ تعزيزاً للعائلة (نفس kind + addresses مشتركة) لمدة 60 يوماً.
+ * تقييم <3 لا يُغيِّر شيئاً.
+ * دالة نقية — لا آثار جانبية.
+ */
+export function applyCardRating(
+  state: LearningState,
+  card: Card,
+  rating: 1 | 2 | 3 | 4 | 5,
+  now?: string,
+): LearningState {
+  if (rating < 3) return state;
+
+  const base = now ? new Date(now) : new Date();
+  const expiresAt = new Date(
+    base.getTime() + DEPRIORITIZE_DAYS * 24 * 60 * 60 * 1_000,
+  ).toISOString();
+
+  const boost: FamilyBoost = {
+    kind: card.kind,
+    addresses: card.addresses,
+    expiresAt,
+  };
+
+  // أبقِ فقط التعزيزات غير المنتهية الصلاحية
+  const nowStr = now ?? new Date().toISOString();
+  const active = state.familyBoosts.filter((b) => b.expiresAt > nowStr);
+
+  return { ...state, familyBoosts: [...active, boost] };
+}
+
+/**
+ * يُسجِّل حركة في المقاييس (تغيّر earnedCeilingLevel) — يُعيد ضبط مؤقّت السكون.
+ * يُستدعى من page shell كلما تغيّر earnedLevel نتيجة applySessionSignal.
+ * دالة نقية — لا آثار جانبية.
+ */
+export function applyMetricChange(
+  state: LearningState,
+  now?: string,
+): LearningState {
+  return {
+    ...state,
+    metricsMovedAt: now ?? new Date().toISOString(),
+  };
+}
+
 /**
  * يختار بطاقة واحدة للعرض، أو null إن لم تتوفر بطاقة مناسبة.
  *
@@ -213,4 +351,83 @@ export function selectCard(params: SelectCardParams): Card | null {
 
   // ─── المرحلة ٥: الإرجاع ──────────────────────────────────────────────────
   return sorted[0] ?? null;
+}
+
+// ─── §4.3 + §4.4 — الاختيار مع التعلّم ──────────────────────────────────────
+
+/**
+ * يختار بطاقة مع مراعاة حالة التعلّم ووضع السكون.
+ *
+ * فوق selectCard القاعدية، تضيف هذه الدالة:
+ * §4.4 — السكون: في حالة السكون يُقيَّد السقف إلى 0 (intensity=0 فقط).
+ * §4.3 — التهميش: البطاقات المُهمَّشة تُدفع للحضيض في الترتيب.
+ * §4.3 — التعزيز: البطاقات ذات العائلة المعزَّزة ترتفع في الأولوية.
+ *
+ * يُستدعى من page shell بدلاً من selectCard.
+ * دالة نقية — لا آثار جانبية، لا استدعاء شبكة.
+ *
+ * @param params   نفس معاملات selectCard
+ * @param learning حالة التعلّم الحالية
+ * @param now      التاريخ الحالي (اختياري — للاختبارات)
+ */
+export function selectCardWithLearning(
+  params: SelectCardParams,
+  learning: LearningState,
+  now?: string,
+): Card | null {
+  const nowStr = now ?? new Date().toISOString();
+  const dormant = isDormant(learning.metricsMovedAt, nowStr);
+
+  // §4.4: في السكون، السقف الفعّال = 0 (intensity=0 فقط)
+  const effectiveCeiling = dormant ? 0 : params.ceiling;
+  const effectiveParams  = dormant ? { ...params, ceiling: 0 } : params;
+
+  // ─── نفس خطوات selectCard (الترشيح + الاستبعاد + تجنّب التكرار) ────────
+  const { role, cards, flags, shownCardIds, lastCardId } = effectiveParams;
+  const audience = role;
+
+  const eligible = cards.filter((card) => {
+    if (card.audience !== audience)                                return false;
+    if (card.intensity > effectiveCeiling)                        return false;
+    if (card.forbidden_when?.some((f) => flags.includes(f)))      return false;
+    return true;
+  });
+
+  if (eligible.length === 0) return null;
+
+  const unseen    = eligible.filter((c) => !shownCardIds.has(c.id));
+  const pool      = unseen.length > 0 ? unseen : eligible;
+  const withoutLast = pool.filter((c) => c.id !== lastCardId);
+  const finalPool = withoutLast.length > 0 ? withoutLast : pool;
+
+  // ─── §4.3: تسجيل نقاط التعلّم لكل بطاقة ─────────────────────────────────
+  function learningScore(card: Card): number {
+    let score = 0;
+
+    // التهميش: بطاقة تجاوَزت مرتين → حضيض الأولوية
+    const skipEntry = learning.skipsByCard[card.id];
+    if (skipEntry?.deprioritizedUntil && skipEntry.deprioritizedUntil > nowStr) {
+      score += DEPRIO_SCORE;
+    }
+
+    // التعزيز: عائلة معزَّزة (نفس kind + address مشتركة) → قمة الأولوية
+    const hasBoostedFamily = learning.familyBoosts.some(
+      (b) =>
+        b.expiresAt > nowStr &&
+        b.kind === card.kind &&
+        b.addresses.some((a) => (card.addresses as string[]).includes(a)),
+    );
+    if (hasBoostedFamily) score += BOOST_SCORE;
+
+    // الأخف حمولةً أولاً — نفس منطق selectCard (عند التعادل في التعلّم)
+    score -= card.intensity;
+
+    return score;
+  }
+
+  const scored = finalPool
+    .map((card) => ({ card, score: learningScore(card) }))
+    .sort((a, b) => b.score - a.score); // أعلى نقطة أولاً
+
+  return scored[0]?.card ?? null;
 }

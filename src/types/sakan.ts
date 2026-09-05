@@ -475,6 +475,42 @@ export interface HusbandState {
   updatedAt: string;    // ISO-8601
 }
 
+// ─── Learning State (حلقة التعلّم — SPEC §4.3 + §4.4) ───────────────────────
+
+/**
+ * سجل التجاوزات لبطاقة بعينها.
+ * count: عدد التجاوزات الإجمالي.
+ * deprioritizedUntil: تاريخ انتهاء التهميش (ISO-8601) — غائب قبل التهميش.
+ */
+export interface CardSkipEntry {
+  count: number;
+  deprioritizedUntil?: string; // ISO date
+}
+
+/**
+ * تعزيز أولوية عائلة بطاقات (نفس kind + addresses مشتركة).
+ * يُنشَأ عند تقييم راحة ≥3 لبطاقة من هذه العائلة.
+ */
+export interface FamilyBoost {
+  kind: CardKind;
+  addresses: CardAddress[]; // يكفي تطابق عنصر واحد في البطاقة المرشَّحة
+  expiresAt: string;        // ISO date
+}
+
+/**
+ * حالة التعلّم — مخزَّنة في IndexedDB تحت key: 'LearningState' لكل طرف.
+ * كل الحقول مُدارة عبر دوال نقية في engine.ts — لا تعديل مباشر.
+ *
+ * metricsMovedAt: آخر مرة تغيّر فيها earnedCeilingLevel — لحساب السكون.
+ * lastCardShownAt: آخر مرة عُرضت فيها بطاقة — لإيقاع السكون (3 أيام).
+ */
+export interface LearningState {
+  skipsByCard: Record<string, CardSkipEntry>;
+  familyBoosts: FamilyBoost[];
+  metricsMovedAt: string;       // ISO date
+  lastCardShownAt: string | null; // ISO date | null إن لم تُعرض بطاقة بعد
+}
+
 /**
  * إشارة استجابة الجلسة — تُستخدم لتحديث الحالة في حلقة التعلّم.
  * لا تُخزَّن مستقلة — تُدمج في الحالة فور التسجيل.

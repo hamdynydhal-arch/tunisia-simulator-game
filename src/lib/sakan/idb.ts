@@ -36,6 +36,7 @@ export const WIFE_STORE_KEYS = {
   ConditionSelection: true,
   Observations: true,
   State: true,
+  LearningState: true,
 } as const satisfies Record<string, true>;
 
 export type WifeStoreKey = keyof typeof WIFE_STORE_KEYS;
@@ -50,6 +51,7 @@ export const HUSBAND_STORE_KEYS = {
   ConditionSelection: true,
   Observations: true,
   State: true,
+  LearningState: true,
 } as const satisfies Record<string, true>;
 
 export type HusbandStoreKey = keyof typeof HUSBAND_STORE_KEYS;
