@@ -16,8 +16,17 @@
  *   re-openable at any time from the settings entry — it never gates progress.
  */
 
-import { useReducer, useTransition } from "react";
+import { useReducer, useTransition, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SakanRole, SakanStep, AnswerMap } from "@/types/sakan";
+import {
+  readRole,
+  writeRole,
+  hasCompletedWeekZero,
+  markWeekZeroComplete,
+  dailyPathFor,
+} from "@/lib/sakan/session";
 import WeekZeroForm from "@/components/sakan/WeekZeroForm";
 import SakanCovenantScreen, {
   hasSeenCovenant,
@@ -44,6 +53,8 @@ type Action =
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SELECT_ROLE":
+      // الدور يُحفظ على هذا الجهاز وحده — لا يُزامَن ولا يظهر للطرف الآخر
+      writeRole(action.role);
       // شاشة الميثاق تُعرض مرة عند أول تشغيل فقط
       return {
         ...state,
@@ -54,6 +65,7 @@ function reducer(state: State, action: Action): State {
       markCovenantSeen();
       return { ...state, step: "week-zero" };
     case "COMPLETE_FORM":
+      markWeekZeroComplete();
       return { ...state, answers: action.answers, step: "complete" };
     case "OPEN_COVENANT":
       return { ...state, covenantReopened: true };
@@ -191,6 +203,17 @@ function CompletionScreen({
   role: SakanRole | null;
   onOpenCovenant: () => void;
 }) {
+  const router = useRouter();
+  const dailyPath = role ? dailyPathFor(role) : null;
+
+  // الانتقال إلى المسار اليومي بعد لحظة قصيرة تكفي لقراءة الشكر.
+  // الرابط أدناه يبقى ظاهراً حتى لا يعتمد التنقّل على المؤقّت وحده.
+  useEffect(() => {
+    if (!dailyPath) return;
+    const t = setTimeout(() => router.replace(dailyPath), 2200);
+    return () => clearTimeout(t);
+  }, [dailyPath, router]);
+
   const isWife = role === "wife";
   const thanks = isWife ? "شكرًا لكِ" : "شكرًا لك";
   const body = isWife
@@ -216,6 +239,17 @@ function CompletionScreen({
         </p>
       </div>
 
+      {/* الانتقال إلى المسار اليومي — لا تنتهي الرحلة هنا */}
+      {dailyPath && (
+        <Link
+          href={dailyPath}
+          className="w-full rounded-xl py-3 px-6 text-white font-semibold text-sm shadow-sm transition-all duration-200 hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-2"
+          style={{ background: "linear-gradient(135deg, #6b7f78 0%, #5c6e68 100%)" }}
+        >
+          المتابعة
+        </Link>
+      )}
+
       {/* مدخل الإعدادات الدائم إلى الميثاق */}
       <button
         type="button"
@@ -233,9 +267,36 @@ function CompletionScreen({
 export default function SakanPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  /**
+   * التخزين المحلي لا يُقرأ أثناء التصيير الثابت، فيُؤجَّل الفحص إلى ما بعد
+   * الترطيب. `resolved` يمنع وميض شاشة اختيار الدور لمن أتمّ أسبوع صفر.
+   */
+  const [resolved, setResolved] = useState(false);
+
+  useEffect(() => {
+    const role = readRole();
+    if (role && hasCompletedWeekZero()) {
+      // أتمّ أسبوع صفر سابقاً — إلى مساره اليومي مباشرة،
+      // لا إلى اختيار الدور ولا إلى الاستبيان من جديد
+      router.replace(dailyPathFor(role));
+      return;
+    }
+    // بوّابة ترطيب لمرّة واحدة: التخزين المحلي غير متاح أثناء التصيير الثابت،
+    // فلا سبيل لحسم الوجهة قبل الترطيب. البديل — التصيير ثم إعادة التوجيه —
+    // يجعل من أتمّ أسبوع صفر يلمح شاشة اختيار الدور، وهو ما يمنعه المطلوب.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setResolved(true);
+  }, [router]);
 
   function advance(action: Action) {
     startTransition(() => dispatch(action));
+  }
+
+  // ريثما يُحسم مصير الجلسة لا تُعرض أي شاشة
+  if (!resolved) {
+    return <div className="min-h-screen" aria-hidden />;
   }
 
   // الميثاق المُعاد فتحه من الإعدادات يعلو على أي شاشة أخرى

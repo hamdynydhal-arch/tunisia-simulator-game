@@ -24,6 +24,8 @@ import type { PreferenceId, SakanRole, PartnerContext } from "@/types/sakan";
 import { useBlindIntersection } from "@/lib/sakan/useBlindIntersection";
 import CoRegulationTimer from "@/components/sakan/CoRegulationTimer";
 import ForwardFocusBuilder from "@/components/sakan/ForwardFocusBuilder";
+import SakanNav from "@/components/sakan/SakanNav";
+import { dailyPathFor } from "@/lib/sakan/session";
 
 // ─── Passphrase gate ──────────────────────────────────────────────────────────
 
@@ -210,6 +212,9 @@ export function SharedSpaceContent({
       <section>
         <ForwardFocusBuilder passphrase={passphrase} role={role} />
       </section>
+
+      {/* التنقّل يعتمد على الدور المحلي وحده — لا يكشف شيئاً عن الطرف الآخر */}
+      <SakanNav current="shared" dailyPath={dailyPathFor(role)} />
     </div>
   );
 }

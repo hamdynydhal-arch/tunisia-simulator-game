@@ -24,6 +24,8 @@ import type { SakanRole } from "@/types/sakan";
 import SakanCovenantScreen from "@/components/sakan/SakanCovenantScreen";
 import AmbientSerenityKey from "@/components/sakan/AmbientSerenityKey";
 import { wipeAllLocalData } from "@/lib/sakan/idb";
+import SakanNav from "@/components/sakan/SakanNav";
+import { readRole, dailyPathFor, clearSakanLocalKeys } from "@/lib/sakan/session";
 
 // ─── localStorage keys ───────────────────────────────────────────────────────
 
@@ -103,13 +105,8 @@ function WipeButton() {
       setPhase("wiping");
       try {
         await wipeAllLocalData();
-        // Also clear localStorage keys this app owns
-        try {
-          localStorage.removeItem("s.c.v");  // covenant seen
-          localStorage.removeItem(BROWSER_WARNING_SEEN_KEY);
-        } catch {
-          // localStorage may be unavailable — silent
-        }
+        // ومعها كل مفاتيح سَكَن المحلية — الدور وإتمام أسبوع صفر وما شوهد
+        clearSakanLocalKeys();
         setPhase("done");
       } catch {
         setPhase("idle");
@@ -161,8 +158,7 @@ export default function SettingsPage() {
   // ── تحميل الدور وحالة تنبيه المتصفح من localStorage ──────────────────────
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("s.r"); // role key (if set by onboarding)
-      if (stored === "wife" || stored === "husband") setRole(stored);
+      setRole(readRole());
       const seen = localStorage.getItem(BROWSER_WARNING_SEEN_KEY);
       if (!seen) setBrowserGuideVisible(true);
     } catch {
@@ -238,6 +234,9 @@ export default function SettingsPage() {
         </p>
         <WipeButton />
       </section>
+
+      {/* العودة إلى المسار اليومي — الدور محلي ولا يظهر في أي نصّ */}
+      <SakanNav current="settings" dailyPath={role ? dailyPathFor(role) : undefined} />
     </div>
   );
 }

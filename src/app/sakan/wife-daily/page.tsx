@@ -42,6 +42,8 @@ import {
 import { ALL_CARDS } from "@/lib/sakan/cards";
 import { readKeyState } from "@/components/sakan/AmbientSerenityKey";
 import WifeDailyView, { type DailyStep } from "@/components/sakan/WifeDailyView";
+import SakanNav from "@/components/sakan/SakanNav";
+import { SAKAN_ROUTES } from "@/lib/sakan/session";
 
 // ─── مكوّن المحتوى المُصادَق عليه (مُصدَّر للاختبار) ───────────────────────────
 
@@ -75,18 +77,22 @@ export function WifeDailyContent({
   onSkip, onMoodTap, onCardDone, onExerciseDone, onRatingSelected,
 }: WifeDailyContentProps) {
   return (
-    <WifeDailyView
-      card={card}
-      step={step}
-      moodSelected={moodSelected}
-      passphrase={passphrase}
-      wifeState={wifeState}
-      onSkip={onSkip}
-      onMoodTap={onMoodTap}
-      onCardDone={onCardDone}
-      onExerciseDone={onExerciseDone}
-      onRatingSelected={onRatingSelected}
-    />
+    <>
+      <WifeDailyView
+        card={card}
+        step={step}
+        moodSelected={moodSelected}
+        passphrase={passphrase}
+        wifeState={wifeState}
+        onSkip={onSkip}
+        onMoodTap={onMoodTap}
+        onCardDone={onCardDone}
+        onExerciseDone={onExerciseDone}
+        onRatingSelected={onRatingSelected}
+      />
+      {/* تنقّل ثابت تماماً — لا يعتمد على أي حالة، فلا يكسر اختبارات التطابق */}
+      <SakanNav current="daily" dailyPath={SAKAN_ROUTES.wifeDaily} />
+    </>
   );
 }
 
