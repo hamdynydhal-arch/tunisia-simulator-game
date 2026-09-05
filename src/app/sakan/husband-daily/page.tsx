@@ -39,6 +39,53 @@ import {
 import { ALL_CARDS } from "@/lib/sakan/cards";
 import HusbandDailyView, { type DailyStep } from "@/components/sakan/HusbandDailyView";
 
+// ─── مكوّن المحتوى المُصادَق عليه (مُصدَّر للاختبار) ───────────────────────────
+
+/**
+ * الجزء المرئي من الصفحة بعد المصادقة — مُصدَّر ليكون اختباراً قابلاً
+ * للعزل في acceptance-test11.test.ts.
+ *
+ * يستقبل learningState لأن أي محاولة لإظهار نص مشروط بوضع السكون أو
+ * التهميش ستقع هنا بالضرورة — والاختبار يقارن HTML حرفياً.
+ *
+ * @testonly — لا يُستدعى من أي مكان آخر خارج الصفحة والاختبار.
+ */
+export interface HusbandDailyContentProps {
+  card: Card | null;
+  step: DailyStep;
+  moodSelected: string | null;
+  passphrase: string;
+  husbandState: HusbandState;
+  /** مُستقبَل لإتاحة اختبار الصمت البصري — لا يُمرَّر إلى HusbandDailyView. */
+  learningState: LearningState;
+  onSkip: () => void;
+  onMoodTap: (mood: string) => void;
+  onCardDone: () => void;
+  onExerciseDone: () => void;
+  onRatingSelected: (r: 1 | 2 | 3 | 4 | 5) => void;
+}
+
+export function HusbandDailyContent({
+  card, step, moodSelected, passphrase, husbandState,
+  // learningState مُستقبَل ولا يُمرَّر للعرض — أي إضافة مشروطة به تُفشل AT11
+  onSkip, onMoodTap, onCardDone, onExerciseDone, onRatingSelected,
+}: HusbandDailyContentProps) {
+  return (
+    <HusbandDailyView
+      card={card}
+      step={step}
+      moodSelected={moodSelected}
+      passphrase={passphrase}
+      husbandState={husbandState}
+      onSkip={onSkip}
+      onMoodTap={onMoodTap}
+      onCardDone={onCardDone}
+      onExerciseDone={onExerciseDone}
+      onRatingSelected={onRatingSelected}
+    />
+  );
+}
+
 // ─── حالة الصفحة ────────────────────────────────────────────────────────────
 
 interface PageState {
@@ -438,12 +485,13 @@ export default function HusbandDailyPage() {
   }
 
   return (
-    <HusbandDailyView
+    <HusbandDailyContent
       card={state.card}
       step={state.step}
       moodSelected={state.moodSelected}
       passphrase={state.passphrase}
       husbandState={state.husbandState ?? DEFAULT_HUSBAND_STATE}
+      learningState={state.learningState ?? makeDefaultLearning(new Date().toISOString())}
       onSkip={handleSkip}
       onMoodTap={(mood) => dispatch({ type: "SET_MOOD", mood })}
       onCardDone={() => dispatch({ type: "CARD_DONE" })}

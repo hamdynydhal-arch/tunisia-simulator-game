@@ -483,6 +483,7 @@ export interface HusbandState {
  * deprioritizedUntil: تاريخ انتهاء التهميش (ISO-8601) — غائب قبل التهميش.
  */
 export interface CardSkipEntry {
+  /** آلية اختيار داخلية فقط — لا يُعرض، لا يُمرَّر إلى أي مكوّن عرض. */
   count: number;
   deprioritizedUntil?: string; // ISO date
 }
